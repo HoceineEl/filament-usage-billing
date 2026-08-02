@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace HoceineEl\UsageBilling\Models;
 
+use HoceineEl\UsageBilling\Enums\ModuleType;
 use HoceineEl\UsageBilling\Models\Concerns\UsesConfiguredTable;
 use HoceineEl\UsageBilling\UsageBilling;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -103,5 +104,43 @@ class PlanModule extends Model
     public function overageAmountHt(int $used): float
     {
         return round($this->overageQuantity($used) * (float) $this->unit_price_ht, 2);
+    }
+
+    /**
+     * One line describing what this plan grants for the module.
+     *
+     * Metered allowances reset every period, so they read "per month" and
+     * carry the twelve-month equivalent for anyone pricing a term. A snapshot
+     * allowance is a ceiling held at any instant — a seat count does not
+     * refill — so neither figure applies to it.
+     */
+    public function summaryLabel(?ModuleType $type = null): string
+    {
+        if ($this->isUnlimited()) {
+            return __('usage-billing::billing.plan.summary.unlimited');
+        }
+
+        $type ??= $this->module?->type();
+        $monthly = $type === ModuleType::Metered ? '_monthly' : '';
+
+        $replacements = [
+            'included' => static::formatQuantity((int) $this->included_quantity),
+            'yearly' => static::formatQuantity((int) $this->included_quantity * 12),
+        ];
+
+        if (! $this->billsOverage()) {
+            return __("usage-billing::billing.plan.summary.capped{$monthly}", $replacements);
+        }
+
+        return __("usage-billing::billing.plan.summary.metered{$monthly}", [
+            ...$replacements,
+            'price' => rtrim(rtrim(number_format((float) $this->unit_price_ht, 2, ',', ' '), '0'), ','),
+            'currency' => UsageBilling::currency(),
+        ]);
+    }
+
+    private static function formatQuantity(int $quantity): string
+    {
+        return number_format($quantity, 0, ',', ' ');
     }
 }

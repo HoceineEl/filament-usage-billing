@@ -7,21 +7,29 @@ namespace HoceineEl\UsageBilling\Filament\Resources\Plans;
 use BackedEnum;
 use Filament\Actions\EditAction;
 use Filament\Forms\Components\Repeater;
+use Filament\Forms\Components\Repeater\TableColumn;
 use Filament\Forms\Components\Select;
+use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
 use Filament\Resources\Resource;
-use Filament\Schemas\Components\Grid;
 use Filament\Schemas\Components\Section;
+use Filament\Schemas\Components\Tabs;
+use Filament\Schemas\Components\Tabs\Tab;
+use Filament\Schemas\Components\Text;
+use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
+use HoceineEl\UsageBilling\Enums\ModuleType;
+use HoceineEl\UsageBilling\Exceptions\UnknownModuleException;
 use HoceineEl\UsageBilling\Filament\Concerns\BelongsToBillingNavigation;
 use HoceineEl\UsageBilling\Filament\Resources\Plans\Pages\CreatePlan;
 use HoceineEl\UsageBilling\Filament\Resources\Plans\Pages\EditPlan;
 use HoceineEl\UsageBilling\Filament\Resources\Plans\Pages\ListPlans;
+use HoceineEl\UsageBilling\Models\Module;
 use HoceineEl\UsageBilling\Models\Plan;
 use HoceineEl\UsageBilling\Models\PlanModule;
 use HoceineEl\UsageBilling\UsageBilling;
@@ -49,126 +57,179 @@ class PlanResource extends Resource
 
     public static function form(Schema $schema): Schema
     {
-        return $schema->components([
-            Section::make(__('usage-billing::billing.plan.sections.identity'))
-                ->columns(2)
-                ->schema([
-                    TextInput::make('slug')
-                        ->label(__('usage-billing::billing.plan.fields.slug'))
-                        ->required()
-                        ->alphaDash()
-                        ->unique(ignoreRecord: true)
-                        ->helperText(__('usage-billing::billing.plan.help.slug')),
-                    TextInput::make('sort_order')
-                        ->label(__('usage-billing::billing.plan.fields.sort_order'))
-                        ->numeric()
-                        ->default(0),
-                    Grid::make(count(static::locales()))
-                        ->columnSpanFull()
-                        ->schema(collect(static::locales())
-                            ->map(fn (string $label, string $locale): TextInput => TextInput::make("name.{$locale}")
-                                ->label(__('usage-billing::billing.plan.fields.name').' — '.$label)
-                                ->required($locale === array_key_first(static::locales())))
-                            ->values()
-                            ->all()),
-                ]),
+        return $schema
+            ->columns(3)
+            ->components([
+                Section::make(__('usage-billing::billing.plan.sections.identity'))
+                    ->icon(Heroicon::OutlinedTag)
+                    ->columnSpan(2)
+                    ->columns(2)
+                    ->schema([
+                        TextInput::make('slug')
+                            ->label(__('usage-billing::billing.plan.fields.slug'))
+                            ->required()
+                            ->alphaDash()
+                            ->unique(ignoreRecord: true)
+                            ->prefixIcon(Heroicon::OutlinedHashtag)
+                            ->helperText(__('usage-billing::billing.plan.help.slug')),
+                        TextInput::make('sort_order')
+                            ->label(__('usage-billing::billing.plan.fields.sort_order'))
+                            ->numeric()
+                            ->default(0)
+                            ->helperText(__('usage-billing::billing.plan.help.sort_order')),
+                        Tabs::make()
+                            ->columnSpanFull()
+                            ->tabs(collect(static::locales())
+                                ->map(fn (string $label, string $locale): Tab => Tab::make($label)
+                                    ->schema([
+                                        TextInput::make("name.{$locale}")
+                                            ->label(__('usage-billing::billing.plan.fields.name'))
+                                            ->required($locale === array_key_first(static::locales())),
+                                        Textarea::make("description.{$locale}")
+                                            ->label(__('usage-billing::billing.plan.fields.description'))
+                                            ->rows(3)
+                                            ->helperText(__('usage-billing::billing.plan.help.description')),
+                                    ]))
+                                ->values()
+                                ->all()),
+                    ]),
 
-            Section::make(__('usage-billing::billing.plan.sections.pricing'))
-                ->columns(3)
-                ->schema([
-                    TextInput::make('price_ht')
-                        ->label(__('usage-billing::billing.plan.fields.price_ht'))
-                        ->numeric()
-                        ->required()
-                        ->default(0)
-                        ->suffix(fn (): string => UsageBilling::currency()),
-                    TextInput::make('tva_rate')
-                        ->label(__('usage-billing::billing.plan.fields.tva_rate'))
-                        ->numeric()
-                        ->required()
-                        ->default(20)
-                        ->suffix('%'),
-                    TextInput::make('currency')
-                        ->label(__('usage-billing::billing.plan.fields.currency'))
-                        ->required()
-                        ->default(fn (): string => UsageBilling::currency())
-                        ->maxLength(3),
-                    TextInput::make('trial_days')
-                        ->label(__('usage-billing::billing.plan.fields.trial_days'))
-                        ->numeric()
-                        ->default(0)
-                        ->suffix(__('usage-billing::billing.plan.units.days')),
-                    TextInput::make('payment_term_days')
-                        ->label(__('usage-billing::billing.plan.fields.payment_term_days'))
-                        ->numeric()
-                        ->default(30)
-                        ->suffix(__('usage-billing::billing.plan.units.days')),
-                    TextInput::make('grace_days')
-                        ->label(__('usage-billing::billing.plan.fields.grace_days'))
-                        ->numeric()
-                        ->default(0)
-                        ->suffix(__('usage-billing::billing.plan.units.days'))
-                        ->helperText(__('usage-billing::billing.plan.help.grace_days')),
-                ]),
+                Section::make(__('usage-billing::billing.plan.sections.pricing'))
+                    ->icon(Heroicon::OutlinedBanknotes)
+                    ->columnSpan(1)
+                    ->columns(2)
+                    ->schema([
+                        TextInput::make('price_ht')
+                            ->label(__('usage-billing::billing.plan.fields.price_ht'))
+                            ->numeric()
+                            ->required()
+                            ->default(0)
+                            ->live(onBlur: true)
+                            ->suffix(fn (): string => UsageBilling::currency()),
+                        TextInput::make('term_months')
+                            ->label(__('usage-billing::billing.plan.fields.term_months'))
+                            ->numeric()
+                            ->required()
+                            ->minValue(1)
+                            ->default(12)
+                            ->live(onBlur: true)
+                            ->suffix(__('usage-billing::billing.plan.units.months')),
+                        TextInput::make('tva_rate')
+                            ->label(__('usage-billing::billing.plan.fields.tva_rate'))
+                            ->numeric()
+                            ->required()
+                            ->default(20)
+                            ->live(onBlur: true)
+                            ->suffix('%'),
+                        TextInput::make('currency')
+                            ->label(__('usage-billing::billing.plan.fields.currency'))
+                            ->required()
+                            ->default(fn (): string => UsageBilling::currency())
+                            ->maxLength(3),
+                        Text::make(fn (Get $get): string => static::priceBreakdown($get))
+                            ->columnSpanFull()
+                            ->icon(Heroicon::OutlinedCalculator)
+                            ->color('primary'),
+                        TextInput::make('trial_days')
+                            ->label(__('usage-billing::billing.plan.fields.trial_days'))
+                            ->numeric()
+                            ->default(0)
+                            ->suffix(__('usage-billing::billing.plan.units.days')),
+                        TextInput::make('renewal_notice_days')
+                            ->label(__('usage-billing::billing.plan.fields.renewal_notice_days'))
+                            ->numeric()
+                            ->default(30)
+                            ->suffix(__('usage-billing::billing.plan.units.days'))
+                            ->helperText(__('usage-billing::billing.plan.help.renewal_notice_days')),
+                        TextInput::make('payment_term_days')
+                            ->label(__('usage-billing::billing.plan.fields.payment_term_days'))
+                            ->numeric()
+                            ->default(30)
+                            ->suffix(__('usage-billing::billing.plan.units.days')),
+                        TextInput::make('grace_days')
+                            ->label(__('usage-billing::billing.plan.fields.grace_days'))
+                            ->numeric()
+                            ->default(0)
+                            ->suffix(__('usage-billing::billing.plan.units.days'))
+                            ->helperText(__('usage-billing::billing.plan.help.grace_days')),
+                    ]),
 
-            Section::make(__('usage-billing::billing.plan.sections.modules'))
-                ->description(__('usage-billing::billing.plan.help.modules'))
-                ->schema([
-                    Repeater::make('planModules')
-                        ->hiddenLabel()
-                        ->relationship()
-                        ->addActionLabel(__('usage-billing::billing.plan.actions.add_module'))
-                        ->itemLabel(fn (array $state): ?string => static::moduleName($state))
-                        ->collapsible()
-                        ->collapsed()
-                        ->cloneable()
-                        ->schema([
-                            Grid::make(4)->schema([
+                Section::make(__('usage-billing::billing.plan.sections.modules'))
+                    ->icon(Heroicon::OutlinedSquares2x2)
+                    ->description(__('usage-billing::billing.plan.help.modules'))
+                    ->columnSpanFull()
+                    ->schema([
+                        Repeater::make('planModules')
+                            ->hiddenLabel()
+                            ->relationship()
+                            ->addActionLabel(__('usage-billing::billing.plan.actions.add_module'))
+                            ->cloneable()
+                            ->compact()
+                            ->table([
+                                TableColumn::make(__('usage-billing::billing.plan.fields.module'))
+                                    ->markAsRequired()
+                                    ->width('22%'),
+                                TableColumn::make(__('usage-billing::billing.plan.fields.included_quantity'))
+                                    ->width('16%'),
+                                TableColumn::make(__('usage-billing::billing.plan.fields.unit_price_ht'))
+                                    ->width('18%'),
+                                TableColumn::make(__('usage-billing::billing.plan.fields.hard_ceiling'))
+                                    ->width('16%'),
+                                TableColumn::make(__('usage-billing::billing.plan.fields.summary')),
+                            ])
+                            ->schema([
                                 Select::make('module_id')
-                                    ->label(__('usage-billing::billing.plan.fields.module'))
-                                    ->options(fn (): array => UsageBilling::query('module')
-                                        ->where('is_active', true)
-                                        ->pluck('key', 'id')
-                                        ->all())
+                                    ->hiddenLabel()
+                                    ->options(fn (): array => static::moduleOptions())
                                     ->required()
                                     ->distinct()
                                     ->searchable()
                                     ->live(),
                                 TextInput::make('included_quantity')
-                                    ->label(__('usage-billing::billing.plan.fields.included_quantity'))
+                                    ->hiddenLabel()
                                     ->numeric()
                                     ->minValue(0)
-                                    ->placeholder(__('usage-billing::billing.plan.placeholders.unlimited'))
-                                    ->helperText(__('usage-billing::billing.plan.help.included_quantity')),
+                                    ->live(onBlur: true)
+                                    ->placeholder(__('usage-billing::billing.plan.placeholders.unlimited')),
                                 TextInput::make('unit_price_ht')
-                                    ->label(__('usage-billing::billing.plan.fields.unit_price_ht'))
+                                    ->hiddenLabel()
                                     ->numeric()
                                     ->minValue(0)
+                                    ->live(onBlur: true)
                                     ->suffix(fn (): string => UsageBilling::currency())
-                                    ->placeholder(__('usage-billing::billing.plan.placeholders.blocks'))
-                                    ->helperText(__('usage-billing::billing.plan.help.unit_price_ht')),
+                                    ->placeholder(__('usage-billing::billing.plan.placeholders.blocks')),
                                 TextInput::make('hard_ceiling')
-                                    ->label(__('usage-billing::billing.plan.fields.hard_ceiling'))
+                                    ->hiddenLabel()
                                     ->numeric()
                                     ->minValue(0)
-                                    ->placeholder(__('usage-billing::billing.plan.placeholders.no_ceiling'))
-                                    ->helperText(__('usage-billing::billing.plan.help.hard_ceiling')),
+                                    ->live(onBlur: true)
+                                    ->placeholder(__('usage-billing::billing.plan.placeholders.no_ceiling')),
+                                Text::make(fn (Get $get): string => static::moduleSummary($get))
+                                    ->badge()
+                                    ->color(fn (Get $get): string => $get('included_quantity') === null || $get('included_quantity') === ''
+                                        ? 'success'
+                                        : 'gray'),
                             ]),
-                        ]),
-                ]),
+                    ]),
 
-            Section::make(__('usage-billing::billing.plan.sections.availability'))
-                ->columns(2)
-                ->schema([
-                    Toggle::make('is_active')
-                        ->label(__('usage-billing::billing.plan.fields.is_active'))
-                        ->default(true),
-                    Toggle::make('is_public')
-                        ->label(__('usage-billing::billing.plan.fields.is_public'))
-                        ->default(true)
-                        ->helperText(__('usage-billing::billing.plan.help.is_public')),
-                ]),
-        ]);
+                Section::make(__('usage-billing::billing.plan.sections.availability'))
+                    ->icon(Heroicon::OutlinedEye)
+                    ->columnSpanFull()
+                    ->columns(2)
+                    ->schema([
+                        Toggle::make('is_active')
+                            ->label(__('usage-billing::billing.plan.fields.is_active'))
+                            ->default(true)
+                            ->onIcon(Heroicon::Check)
+                            ->offIcon(Heroicon::XMark),
+                        Toggle::make('is_public')
+                            ->label(__('usage-billing::billing.plan.fields.is_public'))
+                            ->default(true)
+                            ->onIcon(Heroicon::Check)
+                            ->offIcon(Heroicon::XMark)
+                            ->helperText(__('usage-billing::billing.plan.help.is_public')),
+                    ]),
+            ]);
     }
 
     public static function table(Table $table): Table
@@ -225,47 +286,84 @@ class PlanResource extends Resource
     }
 
     /**
-     * @param  array<string, mixed>  $state
+     * What the row currently grants, restated in words next to the numbers
+     * that produced it.
      */
-    private static function moduleName(array $state): ?string
+    private static function moduleSummary(Get $get): string
     {
-        $moduleId = $state['module_id'] ?? null;
+        $module = static::findModule($get('module_id'));
 
-        if ($moduleId === null) {
-            return null;
-        }
-
-        $key = UsageBilling::query('module')->whereKey($moduleId)->value('key');
-
-        if (! is_string($key)) {
-            return null;
+        if (! $module instanceof Module) {
+            return '—';
         }
 
         $pricing = new PlanModule([
-            'included_quantity' => $state['included_quantity'] ?? null,
-            'unit_price_ht' => $state['unit_price_ht'] ?? null,
-            'hard_ceiling' => $state['hard_ceiling'] ?? null,
+            'included_quantity' => blank($get('included_quantity')) ? null : (int) $get('included_quantity'),
+            'unit_price_ht' => blank($get('unit_price_ht')) ? null : (float) $get('unit_price_ht'),
+            'hard_ceiling' => blank($get('hard_ceiling')) ? null : (int) $get('hard_ceiling'),
         ]);
 
-        return $key.' · '.static::pricingSummary($pricing);
+        return $pricing->summaryLabel(static::moduleType($module));
     }
 
-    private static function pricingSummary(PlanModule $pricing): string
+    /**
+     * The term price restated the two ways a seller is asked about it: what
+     * lands on the invoice, and what it works out to per month.
+     */
+    private static function priceBreakdown(Get $get): string
     {
-        if ($pricing->isUnlimited()) {
-            return __('usage-billing::billing.plan.summary.unlimited');
-        }
+        $price = (float) $get('price_ht');
+        $months = max(1, (int) $get('term_months'));
+        $tva = (float) $get('tva_rate');
 
-        if (! $pricing->billsOverage()) {
-            return __('usage-billing::billing.plan.summary.capped', [
-                'included' => $pricing->included_quantity,
-            ]);
-        }
-
-        return __('usage-billing::billing.plan.summary.metered', [
-            'included' => $pricing->included_quantity,
-            'price' => rtrim(rtrim(number_format((float) $pricing->unit_price_ht, 2, ',', ' '), '0'), ','),
-            'currency' => UsageBilling::currency(),
+        return __('usage-billing::billing.plan.price_breakdown', [
+            'ttc' => number_format($price * (1 + $tva / 100), 2, ',', ' '),
+            'monthly' => number_format($price / $months, 2, ',', ' '),
+            'currency' => $get('currency') ?: UsageBilling::currency(),
+            'months' => $months,
         ]);
+    }
+
+    /** @return array<int, string> */
+    private static function moduleOptions(): array
+    {
+        return UsageBilling::query('module')
+            ->where('is_active', true)
+            ->orderBy('key')
+            ->get()
+            ->mapWithKeys(fn (Module $module): array => [
+                $module->getKey() => static::moduleOptionLabel($module),
+            ])
+            ->all();
+    }
+
+    private static function moduleOptionLabel(Module $module): string
+    {
+        try {
+            return "{$module->key} — {$module->label()}";
+        } catch (UnknownModuleException) {
+            return (string) $module->key;
+        }
+    }
+
+    private static function findModule(mixed $moduleId): ?Module
+    {
+        if (blank($moduleId)) {
+            return null;
+        }
+
+        $module = UsageBilling::query('module')->whereKey($moduleId)->first();
+
+        return $module instanceof Module ? $module : null;
+    }
+
+    /** A row whose class has gone missing still has to render; it only loses the period hint. */
+    private static function moduleType(Module $module): ?ModuleType
+    {
+        try {
+            return $module->type();
+        } catch (UnknownModuleException) {
+            return null;
+        }
     }
 }
