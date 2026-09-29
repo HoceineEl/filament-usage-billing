@@ -11,6 +11,7 @@ use HoceineEl\UsageBilling\Models\Subscription;
 use HoceineEl\UsageBilling\Services\TermBiller;
 use HoceineEl\UsageBilling\UsageBilling;
 use Illuminate\Console\Command;
+use Illuminate\Database\Eloquent\Collection;
 use Throwable;
 
 /**
@@ -18,8 +19,8 @@ use Throwable;
  * before it ends, so a subscriber always has a facture in hand with time to pay
  * it by bank transfer.
  *
- * Safe to re-run: TermBiller returns the outstanding term invoice rather than
- * writing a second one.
+ * Safe to re-run: a subscription whose term facture is already out is skipped,
+ * and TermBiller returns that facture rather than writing a second one.
  */
 class IssueRenewalsCommand extends Command
 {
@@ -44,7 +45,7 @@ class IssueRenewalsCommand extends Command
                 ? (int) $override
                 : (int) ($subscription->plan?->renewal_notice_days ?? 30);
 
-            if (! $this->isDue($subscription, $notice)) {
+            if ($biller->openTermInvoice($subscription) !== null || ! $this->isDue($subscription, $notice)) {
                 $skipped++;
 
                 continue;
@@ -86,7 +87,7 @@ class IssueRenewalsCommand extends Command
     }
 
     /**
-     * @return \Illuminate\Database\Eloquent\Collection<int, Subscription>
+     * @return Collection<int, Subscription>
      */
     private function candidates()
     {

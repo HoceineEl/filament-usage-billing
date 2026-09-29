@@ -2,10 +2,13 @@
 
 declare(strict_types=1);
 
+use HoceineEl\UsageBilling\Enums\PaymentMethod;
+use HoceineEl\UsageBilling\Models\Invoice;
 use HoceineEl\UsageBilling\Models\Module;
 use HoceineEl\UsageBilling\Models\Plan;
 use HoceineEl\UsageBilling\Models\PlanModule;
 use HoceineEl\UsageBilling\Models\Subscription;
+use HoceineEl\UsageBilling\Services\SubscriptionManager;
 use HoceineEl\UsageBilling\Tests\Fixtures\Cabinet;
 use HoceineEl\UsageBilling\Tests\Fixtures\Customer;
 use HoceineEl\UsageBilling\Tests\TestCase;
@@ -80,4 +83,24 @@ function subscribe(Cabinet $cabinet, Plan $plan, array $attributes = []): Subscr
     $cabinet->forgetSubscription();
 
     return $subscription;
+}
+
+function annualPlan(array $modules = ['documents' => ['included' => 100, 'price' => 1]], float $price = 2490): Plan
+{
+    return tap(planWith($modules, basePrice: $price), fn (Plan $plan) => $plan->forceFill([
+        'term_months' => 12,
+        'renewal_notice_days' => 30,
+        'grace_days' => 10,
+        'payment_term_days' => 30,
+    ])->save());
+}
+
+function settle(Invoice $invoice): void
+{
+    $manager = app(SubscriptionManager::class);
+
+    $manager->validatePayment($manager->declarePayment($invoice, [
+        'method' => PaymentMethod::Virement,
+        'amount' => (float) $invoice->total_ttc,
+    ]));
 }

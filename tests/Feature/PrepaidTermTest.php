@@ -6,29 +6,8 @@ use HoceineEl\UsageBilling\Enums\InvoiceStatus;
 use HoceineEl\UsageBilling\Enums\PaymentMethod;
 use HoceineEl\UsageBilling\Enums\SubscriptionStatus;
 use HoceineEl\UsageBilling\Models\Invoice;
-use HoceineEl\UsageBilling\Models\Plan;
 use HoceineEl\UsageBilling\Services\SubscriptionManager;
 use HoceineEl\UsageBilling\Services\TermBiller;
-
-function annualPlan(array $modules = ['documents' => ['included' => 100, 'price' => 1]], float $price = 2490): Plan
-{
-    return tap(planWith($modules, basePrice: $price), fn (Plan $plan) => $plan->forceFill([
-        'term_months' => 12,
-        'renewal_notice_days' => 30,
-        'grace_days' => 10,
-        'payment_term_days' => 30,
-    ])->save());
-}
-
-function settle(Invoice $invoice): void
-{
-    $manager = app(SubscriptionManager::class);
-
-    $manager->validatePayment($manager->declarePayment($invoice, [
-        'method' => PaymentMethod::Virement,
-        'amount' => (float) $invoice->total_ttc,
-    ]));
-}
 
 it('starts a new subscription awaiting payment, not active', function (): void {
     $cabinet = cabinet();

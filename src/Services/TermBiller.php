@@ -8,12 +8,14 @@ use Carbon\CarbonImmutable;
 use HoceineEl\UsageBilling\Contracts\BillingParty;
 use HoceineEl\UsageBilling\Enums\InvoiceStatus;
 use HoceineEl\UsageBilling\Enums\SubscriptionEventType;
+use HoceineEl\UsageBilling\Events\InvoiceIssued;
 use HoceineEl\UsageBilling\Models\Invoice;
 use HoceineEl\UsageBilling\Models\Plan;
 use HoceineEl\UsageBilling\Models\Subscription;
 use HoceineEl\UsageBilling\Support\Period;
 use HoceineEl\UsageBilling\UsageBilling;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -35,10 +37,51 @@ class TermBiller
     ) {}
 
     /**
-     * Invoice the next term. Returns the existing unpaid term invoice when one
-     * is already out, so a renewal run cannot bill the same term twice.
+     * Invoice the next term. One term facture is open at a time: while one is
+     * awaiting payment it is returned whatever month the run lands in, so a
+     * renewal job can never bill an unpaid trial a fresh term every month.
      */
     public function issueTermInvoice(Subscription $subscription, ?CarbonImmutable $termStart = null): ?Invoice
+    {
+        return Cache::store(config('usage-billing.cache.store'))->lock("usage-billing:issue-term:{$subscription->getKey()}", 30)->block(
+            10,
+            fn (): ?Invoice => $this->openTermInvoice($subscription) ?? $this->createTermInvoice($subscription, $termStart),
+        );
+    }
+
+    /**
+     * The term facture still awaiting payment, if any. Upgrade supplements are
+     * not terms and never count.
+     */
+    public function openTermInvoice(Subscription $subscription): ?Invoice
+    {
+        return $subscription->invoices()
+            ->awaitingPayment()
+            ->oldest('issued_at')
+            ->get()
+            ->first(fn (Invoice $invoice): bool => static::termOf($invoice) !== null);
+    }
+
+    /**
+     * The term a facture sells, read from the intent stored on it.
+     *
+     * @return array{starts_at: CarbonImmutable, ends_at: CarbonImmutable}|null
+     */
+    public static function termOf(Invoice $invoice): ?array
+    {
+        $intent = json_decode((string) $invoice->notes, true);
+
+        if (! is_array($intent) || ! isset($intent['term_starts_at'], $intent['term_ends_at'])) {
+            return null;
+        }
+
+        return [
+            'starts_at' => CarbonImmutable::parse($intent['term_starts_at'])->startOfDay(),
+            'ends_at' => CarbonImmutable::parse($intent['term_ends_at'])->endOfDay(),
+        ];
+    }
+
+    protected function createTermInvoice(Subscription $subscription, ?CarbonImmutable $termStart = null): ?Invoice
     {
         $plan = $subscription->plan;
 
@@ -54,22 +97,16 @@ class TermBiller
 
         $termStart = $termStart ?? $this->nextTermStart($subscription);
         $termEnd = $plan->termEndFrom($termStart);
-        $period = $termStart->format('Y-m');
+        $dueAt = $this->termDueDate($subscription, $plan);
 
-        $existing = $this->outstandingTermInvoice($subscription, $period);
-
-        if ($existing instanceof Invoice) {
-            return $existing;
-        }
-
-        return DB::transaction(function () use ($subscription, $subscriber, $plan, $termStart, $termEnd, $period): Invoice {
+        $invoice = DB::transaction(function () use ($subscription, $subscriber, $plan, $termStart, $termEnd, $dueAt): Invoice {
             /** @var Invoice $invoice */
             $invoice = UsageBilling::query('invoice')->create([
                 ...$this->buyerSnapshot($subscriber),
                 'subscriber_type' => $subscriber->getMorphClass(),
                 'subscriber_id' => $subscriber->getKey(),
                 'subscription_id' => $subscription->getKey(),
-                'period' => $period,
+                'period' => $termStart->format('Y-m'),
                 'status' => InvoiceStatus::Draft,
                 'currency' => $plan->currency ?? UsageBilling::currency(),
                 'tva_rate' => $plan->tva_rate,
@@ -94,7 +131,7 @@ class TermBiller
                 'number' => $this->numbers->next(),
                 'status' => InvoiceStatus::Issued,
                 'issued_at' => now(),
-                'due_at' => now()->addDays((int) $plan->payment_term_days),
+                'due_at' => $dueAt,
                 'notes' => json_encode([
                     'term_starts_at' => $termStart->toDateString(),
                     'term_ends_at' => $termEnd->toDateString(),
@@ -114,6 +151,33 @@ class TermBiller
 
             return $invoice;
         });
+
+        InvoiceIssued::dispatch($invoice);
+
+        return $invoice;
+    }
+
+    /**
+     * A trial facture falls due when the trial ends, never later, so it cannot
+     * still be "not yet due" once access has run out.
+     */
+    protected function termDueDate(Subscription $subscription, Plan $plan): CarbonImmutable
+    {
+        $dueAt = CarbonImmutable::now()->addDays((int) $plan->payment_term_days);
+        $trialEndsAt = $this->unpaidTrialEnd($subscription);
+
+        return $trialEndsAt !== null && $dueAt->isAfter($trialEndsAt) ? $trialEndsAt : $dueAt;
+    }
+
+    /**
+     * When a trial that has never been paid for ends, or null once a term has
+     * been bought.
+     */
+    protected function unpaidTrialEnd(Subscription $subscription): ?CarbonImmutable
+    {
+        return $subscription->onTrial() && $subscription->ends_at === null
+            ? $subscription->trial_ends_at
+            : null;
     }
 
     /**
@@ -141,7 +205,7 @@ class TermBiller
             return null;
         }
 
-        return DB::transaction(function () use ($subscription, $subscriber, $current, $target, $amount): Invoice {
+        $invoice = DB::transaction(function () use ($subscription, $subscriber, $current, $target, $amount): Invoice {
             /** @var Invoice $invoice */
             $invoice = UsageBilling::query('invoice')->create([
                 ...$this->buyerSnapshot($subscriber),
@@ -189,14 +253,24 @@ class TermBiller
 
             return $invoice;
         });
+
+        InvoiceIssued::dispatch($invoice);
+
+        return $invoice;
     }
 
     /**
      * Where the next term begins: right after the current one for a renewal,
-     * today for a first purchase.
+     * the day after a free trial ends, today for a first purchase.
      */
     public function nextTermStart(Subscription $subscription): CarbonImmutable
     {
+        $trialEndsAt = $this->unpaidTrialEnd($subscription);
+
+        if ($trialEndsAt !== null) {
+            return $trialEndsAt->addDay()->startOfDay();
+        }
+
         $endsAt = $subscription->ends_at;
 
         return $endsAt !== null && $endsAt->isFuture()
@@ -223,6 +297,7 @@ class TermBiller
         return min(1.0, $remaining / $total);
     }
 
+    /** @deprecated Matches within one month only; use openTermInvoice(). */
     public function outstandingTermInvoice(Subscription $subscription, string $period): ?Invoice
     {
         return UsageBilling::query('invoice')

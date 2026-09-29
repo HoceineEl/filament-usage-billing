@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace HoceineEl\UsageBilling;
 
 use HoceineEl\UsageBilling\Commands\ClosePeriodCommand;
+use HoceineEl\UsageBilling\Commands\EndTrialsCommand;
 use HoceineEl\UsageBilling\Commands\ExpireSubscriptionsCommand;
 use HoceineEl\UsageBilling\Commands\IssueRenewalsCommand;
 use HoceineEl\UsageBilling\Commands\MarkOverdueCommand;
@@ -35,6 +36,7 @@ class UsageBillingServiceProvider extends PackageServiceProvider
             ->hasCommands([
                 SyncModulesCommand::class,
                 IssueRenewalsCommand::class,
+                EndTrialsCommand::class,
                 ExpireSubscriptionsCommand::class,
                 ClosePeriodCommand::class,
                 MarkOverdueCommand::class,
