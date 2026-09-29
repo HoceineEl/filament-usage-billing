@@ -60,6 +60,11 @@ return [
         'invoice_cancelled' => 'تم إلغاء الفاتورة',
     ],
 
+    'reset_period' => [
+        'month' => 'شهري',
+        'day' => 'يومي',
+    ],
+
     'denied' => [
         'no_subscription' => 'تتطلب هذه الخاصية اشتراكا نشطا.',
         'subscription_inactive' => 'اشتراككم غير نشط. يرجى أداء الفاتورة المعلقة للمتابعة.',
@@ -140,6 +145,8 @@ return [
             'capped_monthly' => ':included شهريا · :yearly سنويا',
             'metered' => ':included مدرجة، ثم :price :currency',
             'metered_monthly' => ':included شهريا · :yearly سنويا، ثم :price :currency',
+            'capped_daily' => ':included يوميا كحد أقصى',
+            'metered_daily' => ':included يوميا، ثم :price :currency',
         ],
         'actions' => [
             'add_module' => 'إضافة وحدة',

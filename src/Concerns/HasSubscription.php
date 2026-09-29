@@ -10,10 +10,12 @@ use HoceineEl\UsageBilling\Data\UsageBucket;
 use HoceineEl\UsageBilling\Models\Invoice;
 use HoceineEl\UsageBilling\Models\Subscription;
 use HoceineEl\UsageBilling\Services\ModuleGate;
+use HoceineEl\UsageBilling\Services\ModuleRegistry;
 use HoceineEl\UsageBilling\Services\UsageReader;
 use HoceineEl\UsageBilling\Services\UsageRecorder;
 use HoceineEl\UsageBilling\Services\UsageSynchronizer;
 use HoceineEl\UsageBilling\Support\Period;
+use HoceineEl\UsageBilling\Support\UsageWindow;
 use HoceineEl\UsageBilling\UsageBilling;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\MorphMany;
@@ -133,11 +135,18 @@ trait HasSubscription
             return 0;
         }
 
-        return app(UsageReader::class)->total(
-            $subscription,
-            $moduleKey,
-            $period === null ? Period::current() : Period::fromKey($period),
-        );
+        return $period === null
+            ? app(UsageReader::class)->windowTotal($subscription, $this, $moduleKey, $this->usageWindow($moduleKey))
+            : app(UsageReader::class)->total($subscription, $moduleKey, Period::fromKey($period));
+    }
+
+    /**
+     * The window the module's allowance currently covers: this month, or today
+     * for a module that resets daily.
+     */
+    public function usageWindow(string $moduleKey): UsageWindow
+    {
+        return UsageWindow::current(app(ModuleRegistry::class)->resetPeriod($moduleKey), $this);
     }
 
     public function allowanceFor(string $moduleKey): ?int

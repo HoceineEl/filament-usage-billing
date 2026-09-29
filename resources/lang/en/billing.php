@@ -60,6 +60,11 @@ return [
         'invoice_cancelled' => 'Invoice cancelled',
     ],
 
+    'reset_period' => [
+        'month' => 'Monthly',
+        'day' => 'Daily',
+    ],
+
     'denied' => [
         'no_subscription' => 'This feature needs an active subscription.',
         'subscription_inactive' => 'Your subscription is inactive. Settle the outstanding invoice to continue.',
@@ -140,6 +145,8 @@ return [
             'capped_monthly' => ':included max / month · :yearly / year',
             'metered' => ':included included, then :price :currency',
             'metered_monthly' => ':included / month · :yearly / year, then :price :currency',
+            'capped_daily' => ':included max / day',
+            'metered_daily' => ':included / day, then :price :currency',
         ],
         'actions' => [
             'add_module' => 'Add a module',

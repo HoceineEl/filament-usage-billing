@@ -4,7 +4,10 @@ declare(strict_types=1);
 
 namespace HoceineEl\UsageBilling\Services;
 
+use HoceineEl\UsageBilling\Contracts\HasResetPeriod;
 use HoceineEl\UsageBilling\Contracts\MeteredModule;
+use HoceineEl\UsageBilling\Enums\ModuleType;
+use HoceineEl\UsageBilling\Enums\ResetPeriod;
 use HoceineEl\UsageBilling\Exceptions\UnknownModuleException;
 use HoceineEl\UsageBilling\Models\Module;
 use HoceineEl\UsageBilling\UsageBilling;
@@ -42,6 +45,19 @@ class ModuleRegistry
     public function get(string $key): MeteredModule
     {
         return $this->all()->get($key) ?? throw UnknownModuleException::forKey($key);
+    }
+
+    /**
+     * How often the module's allowance refills. Snapshot modules measure a
+     * state rather than a stream, so they never reset.
+     */
+    public function resetPeriod(string $key): ResetPeriod
+    {
+        $module = $this->get($key);
+
+        return $module instanceof HasResetPeriod && $module->type() === ModuleType::Metered
+            ? $module->resetPeriod()
+            : ResetPeriod::Month;
     }
 
     public function has(string $key): bool

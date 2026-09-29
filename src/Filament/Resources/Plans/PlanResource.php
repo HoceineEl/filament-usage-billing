@@ -303,7 +303,7 @@ class PlanResource extends Resource
             'hard_ceiling' => blank($get('hard_ceiling')) ? null : (int) $get('hard_ceiling'),
         ]);
 
-        return $pricing->summaryLabel(static::moduleType($module));
+        return $pricing->summaryLabel(static::moduleType($module), $module->resetPeriod());
     }
 
     /**

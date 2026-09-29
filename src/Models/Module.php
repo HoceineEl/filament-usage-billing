@@ -7,8 +7,10 @@ namespace HoceineEl\UsageBilling\Models;
 use HoceineEl\UsageBilling\Contracts\MeteredModule;
 use HoceineEl\UsageBilling\Database\Factories\ModuleFactory;
 use HoceineEl\UsageBilling\Enums\ModuleType;
+use HoceineEl\UsageBilling\Enums\ResetPeriod;
 use HoceineEl\UsageBilling\Exceptions\UnknownModuleException;
 use HoceineEl\UsageBilling\Models\Concerns\UsesConfiguredTable;
+use HoceineEl\UsageBilling\Services\ModuleRegistry;
 use HoceineEl\UsageBilling\UsageBilling;
 use Illuminate\Database\Eloquent\Attributes\Scope;
 use Illuminate\Database\Eloquent\Builder;
@@ -108,5 +110,12 @@ class Module extends Model
     public function type(): ModuleType
     {
         return $this->instance()->type();
+    }
+
+    public function resetPeriod(): ResetPeriod
+    {
+        $registry = app(ModuleRegistry::class);
+
+        return $registry->has((string) $this->key) ? $registry->resetPeriod((string) $this->key) : ResetPeriod::Month;
     }
 }

@@ -5,12 +5,15 @@ declare(strict_types=1);
 namespace HoceineEl\UsageBilling\Services;
 
 use HoceineEl\UsageBilling\Data\UsageBucket;
+use HoceineEl\UsageBilling\Enums\ResetPeriod;
 use HoceineEl\UsageBilling\Enums\SubscriptionEventType;
 use HoceineEl\UsageBilling\Events\UsageRecorded;
 use HoceineEl\UsageBilling\Events\UsageThresholdReached;
 use HoceineEl\UsageBilling\Models\Subscription;
 use HoceineEl\UsageBilling\Support\Period;
+use HoceineEl\UsageBilling\Support\UsageWindow;
 use HoceineEl\UsageBilling\UsageBilling;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -71,9 +74,24 @@ class UsageRecorder
 
         $this->reader->forget($subscription, $moduleKey, $period);
 
+        $window = $this->dailyWindow($subscription, $moduleKey);
+
+        if ($window !== null) {
+            $this->reader->forgetWindow($subscription, $moduleKey, $window);
+        }
+
         UsageRecorded::dispatch($subscription, $moduleKey, $quantity, $bucket, $period->key);
 
-        $this->checkThresholds($subscription, $moduleKey, $period);
+        $this->checkThresholds($subscription, $moduleKey, $period, $window);
+    }
+
+    private function dailyWindow(Subscription $subscription, string $moduleKey): ?UsageWindow
+    {
+        if ($this->registry->resetPeriod($moduleKey) !== ResetPeriod::Day || ! $subscription->subscriber instanceof Model) {
+            return null;
+        }
+
+        return UsageWindow::current(ResetPeriod::Day, $subscription->subscriber);
     }
 
     /**
@@ -118,8 +136,9 @@ class UsageRecorder
      * Fire a notification the first time a period crosses each configured
      * percentage of the allowance. The subscription event log doubles as the
      * "already told them" record, so a burst of usage cannot spam the tenant.
+     * A daily module is measured against today's window instead of the month.
      */
-    private function checkThresholds(Subscription $subscription, string $moduleKey, Period $period): void
+    private function checkThresholds(Subscription $subscription, string $moduleKey, Period $period, ?UsageWindow $window = null): void
     {
         $pricing = $subscription->pricingFor($moduleKey);
 
@@ -127,7 +146,10 @@ class UsageRecorder
             return;
         }
 
-        $used = $this->reader->totalFromDatabase($subscription, $moduleKey, $period);
+        $used = $window === null
+            ? $this->reader->totalFromDatabase($subscription, $moduleKey, $period)
+            : $this->reader->windowTotalFromModule($subscription->subscriber, $moduleKey, $window);
+        $windowKey = $window === null ? $period->key : $window->key;
         $percentage = $used / (int) $pricing->included_quantity * 100;
 
         foreach (UsageBilling::thresholds() as $threshold) {
@@ -138,7 +160,7 @@ class UsageRecorder
             $alreadyNotified = $subscription->events()
                 ->where('type', SubscriptionEventType::UsageThreshold)
                 ->where('meta->module', $moduleKey)
-                ->where('meta->period', $period->key)
+                ->where('meta->period', $windowKey)
                 ->where('meta->threshold', $threshold)
                 ->exists();
 
@@ -151,7 +173,7 @@ class UsageRecorder
                 'to_value' => (string) $used,
                 'meta' => [
                     'module' => $moduleKey,
-                    'period' => $period->key,
+                    'period' => $windowKey,
                     'threshold' => $threshold,
                     'allowance' => $pricing->included_quantity,
                 ],

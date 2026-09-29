@@ -6,11 +6,12 @@ namespace HoceineEl\UsageBilling\Tests\Fixtures;
 
 use HoceineEl\UsageBilling\Concerns\HasSubscription;
 use HoceineEl\UsageBilling\Contracts\BillingParty;
+use HoceineEl\UsageBilling\Contracts\HasUsageTimezone;
 use HoceineEl\UsageBilling\Contracts\Subscribable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
-class Cabinet extends Model implements BillingParty, Subscribable
+class Cabinet extends Model implements BillingParty, HasUsageTimezone, Subscribable
 {
     use HasSubscription;
 
@@ -19,6 +20,8 @@ class Cabinet extends Model implements BillingParty, Subscribable
     protected $guarded = [];
 
     public static bool $limitsEnforced = true;
+
+    public static ?string $timezone = null;
 
     /** @return HasMany<Customer, $this> */
     public function customers(): HasMany
@@ -54,5 +57,10 @@ class Cabinet extends Model implements BillingParty, Subscribable
     public function usageLimitsEnforced(): bool
     {
         return static::$limitsEnforced;
+    }
+
+    public function usageTimezone(): string
+    {
+        return static::$timezone ?? (string) config('app.timezone');
     }
 }

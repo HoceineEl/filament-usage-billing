@@ -60,6 +60,11 @@ return [
         'invoice_cancelled' => 'Facture annulée',
     ],
 
+    'reset_period' => [
+        'month' => 'Mensuel',
+        'day' => 'Quotidien',
+    ],
+
     'denied' => [
         'no_subscription' => 'Cette fonctionnalité nécessite un abonnement actif.',
         'subscription_inactive' => 'Votre abonnement est inactif. Réglez la facture en attente pour continuer.',
@@ -140,6 +145,8 @@ return [
             'capped_monthly' => ':included max / mois · :yearly / an',
             'metered' => ':included inclus, puis :price :currency',
             'metered_monthly' => ':included / mois · :yearly / an, puis :price :currency',
+            'capped_daily' => ':included max / jour',
+            'metered_daily' => ':included / jour, puis :price :currency',
         ],
         'actions' => [
             'add_module' => 'Ajouter un module',

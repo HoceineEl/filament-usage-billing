@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace HoceineEl\UsageBilling\Tests;
 
 use HoceineEl\UsageBilling\Tests\Fixtures\DocumentsModule;
+use HoceineEl\UsageBilling\Tests\Fixtures\MessagesModule;
 use HoceineEl\UsageBilling\Tests\Fixtures\SeatsModule;
 use HoceineEl\UsageBilling\UsageBillingServiceProvider;
 use Illuminate\Database\Schema\Blueprint;
@@ -35,6 +36,7 @@ abstract class TestCase extends Orchestra
         $app['config']->set('usage-billing.modules', [
             DocumentsModule::class,
             SeatsModule::class,
+            MessagesModule::class,
         ]);
         $app['config']->set('usage-billing.seller.name', 'Platform SARL');
         $app['config']->set('usage-billing.cache.ttl', 0);
@@ -71,6 +73,12 @@ abstract class TestCase extends Orchestra
             $table->foreignId('customer_id')->nullable();
             $table->boolean('failed')->default(false);
             $table->timestamps();
+        });
+
+        Schema::create('messages', function (Blueprint $table): void {
+            $table->id();
+            $table->foreignId('cabinet_id');
+            $table->timestamp('sent_at');
         });
     }
 }

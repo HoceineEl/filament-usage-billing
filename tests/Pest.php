@@ -71,6 +71,14 @@ function planWith(array $modules, float $basePrice = 500): Plan
     return $plan->load('planModules.module');
 }
 
+function message(Cabinet $cabinet, ?string $at = null): void
+{
+    DB::table('messages')->insert([
+        'cabinet_id' => $cabinet->getKey(),
+        'sent_at' => $at ?? now(),
+    ]);
+}
+
 function subscribe(Cabinet $cabinet, Plan $plan, array $attributes = []): Subscription
 {
     $subscription = Subscription::factory()->create([

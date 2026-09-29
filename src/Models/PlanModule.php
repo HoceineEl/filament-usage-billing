@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace HoceineEl\UsageBilling\Models;
 
 use HoceineEl\UsageBilling\Enums\ModuleType;
+use HoceineEl\UsageBilling\Enums\ResetPeriod;
 use HoceineEl\UsageBilling\Models\Concerns\UsesConfiguredTable;
 use HoceineEl\UsageBilling\UsageBilling;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -112,16 +113,22 @@ class PlanModule extends Model
      * Metered allowances reset every period, so they read "per month" and
      * carry the twelve-month equivalent for anyone pricing a term. A snapshot
      * allowance is a ceiling held at any instant — a seat count does not
-     * refill — so neither figure applies to it.
+     * refill — so neither figure applies to it. A daily allowance reads "per
+     * day" instead.
      */
-    public function summaryLabel(?ModuleType $type = null): string
+    public function summaryLabel(?ModuleType $type = null, ?ResetPeriod $resetPeriod = null): string
     {
         if ($this->isUnlimited()) {
             return __('usage-billing::billing.plan.summary.unlimited');
         }
 
         $type ??= $this->module?->type();
-        $monthly = $type === ModuleType::Metered ? '_monthly' : '';
+        $resetPeriod ??= $this->module?->resetPeriod() ?? ResetPeriod::Month;
+        $monthly = match (true) {
+            $type !== ModuleType::Metered => '',
+            $resetPeriod === ResetPeriod::Day => '_daily',
+            default => '_monthly',
+        };
 
         $replacements = [
             'included' => static::formatQuantity((int) $this->included_quantity),

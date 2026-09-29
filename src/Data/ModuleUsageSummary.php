@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace HoceineEl\UsageBilling\Data;
 
+use HoceineEl\UsageBilling\Enums\ResetPeriod;
 use Illuminate\Support\Collection;
 
 /**
@@ -25,12 +26,18 @@ final readonly class ModuleUsageSummary
         public ?float $unitPriceHt,
         public ?int $ceiling,
         public Collection $buckets,
+        public ResetPeriod $resetPeriod = ResetPeriod::Month,
+        public ?int $overage = null,
     ) {}
 
     public function overageQuantity(): int
     {
         if ($this->allowance === null) {
             return 0;
+        }
+
+        if ($this->overage !== null) {
+            return $this->overage;
         }
 
         return max(0, $this->total - $this->allowance);
@@ -52,7 +59,7 @@ final readonly class ModuleUsageSummary
 
     public function consumedPercentage(): ?float
     {
-        if ($this->allowance === null || $this->allowance === 0) {
+        if ($this->allowance === null || $this->allowance === 0 || $this->resetPeriod !== ResetPeriod::Month) {
             return null;
         }
 
@@ -72,6 +79,7 @@ final readonly class ModuleUsageSummary
             'allowance' => $this->allowance,
             'unit_price_ht' => $this->unitPriceHt,
             'ceiling' => $this->ceiling,
+            'reset_period' => $this->resetPeriod->value,
             'overage_quantity' => $this->overageQuantity(),
             'overage_amount_ht' => $this->overageAmountHt(),
             'buckets' => $this->buckets

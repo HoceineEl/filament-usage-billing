@@ -12,6 +12,7 @@ use HoceineEl\UsageBilling\Enums\ModuleType;
 use HoceineEl\UsageBilling\Exceptions\ModuleUnavailableException;
 use HoceineEl\UsageBilling\Models\Subscription;
 use HoceineEl\UsageBilling\Support\Period;
+use HoceineEl\UsageBilling\Support\UsageWindow;
 use Illuminate\Database\Eloquent\Model;
 
 /**
@@ -54,7 +55,7 @@ class ModuleGate
             return GateDecision::allowed();
         }
 
-        $used = $this->usedFor($subscription, $subscriber, $moduleKey, $period ?? Period::current());
+        $used = $this->usedFor($subscription, $subscriber, $moduleKey, $period);
 
         return $pricing->permits($used)
             ? GateDecision::allowed($used, $pricing->included_quantity, $pricing->blockingLimit())
@@ -75,17 +76,22 @@ class ModuleGate
      * A snapshot module is a live count — seats held right now — so caching it
      * would be answering with a number nobody maintains: nothing meters a seat,
      * and deactivating one has to free it immediately. Metered modules keep
-     * reading the counter cache, which is what it is for.
+     * reading the counter cache, which is what it is for, and a daily module
+     * reads today's window in the subscriber's timezone.
      */
     private function usedFor(
         Subscription $subscription,
         Model&Subscribable $subscriber,
         string $moduleKey,
-        Period $period,
+        ?Period $period,
     ): int {
         if ($this->registry->get($moduleKey)->type() !== ModuleType::Snapshot) {
-            return $this->reader->total($subscription, $moduleKey, $period);
+            return $period === null
+                ? $this->reader->windowTotal($subscription, $subscriber, $moduleKey, UsageWindow::current($this->registry->resetPeriod($moduleKey), $subscriber))
+                : $this->reader->total($subscription, $moduleKey, $period);
         }
+
+        $period ??= Period::current();
 
         return (int) app(UsageSynchronizer::class)
             ->bucketsFor($moduleKey, $subscriber, $period)
