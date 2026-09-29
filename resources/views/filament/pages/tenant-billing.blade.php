@@ -68,15 +68,12 @@
                 color="gray"
                 icon="heroicon-o-building-library"
                 :heading="__('usage-billing::billing.tenant.payment_instructions.heading', ['number' => $outstanding->number])"
-                :description="$bank
-                    ? __('usage-billing::billing.tenant.payment_instructions.description', [
-                        'amount' => $this->money($outstanding->balanceDue(), $outstanding->currency),
-                        'date' => $outstanding->due_at?->translatedFormat('d/m/Y') ?? '—',
-                    ])
-                    : __('usage-billing::billing.tenant.payment_instructions.contact', [
-                        'amount' => $this->money($outstanding->balanceDue(), $outstanding->currency),
-                        'date' => $outstanding->due_at?->translatedFormat('d/m/Y') ?? '—',
-                    ])"
+                :description="__($bank
+                    ? 'usage-billing::billing.tenant.payment_instructions.description'
+                    : 'usage-billing::billing.tenant.payment_instructions.contact', [
+                    'amount' => $this->money($outstanding->balanceDue(), $outstanding->currency),
+                    'date' => $outstanding->due_at?->translatedFormat('d/m/Y') ?? '—',
+                ])"
             >
                 @if ($bank)
                     <x-slot name="footer">

@@ -243,10 +243,14 @@ class TenantBilling extends Page implements HasTable
     public function table(Table $table): Table
     {
         return $table
-            ->query(fn (): Builder => UsageBilling::query('invoice')
-                ->where('subscriber_type', $this->getSubscriber()->getMorphClass())
-                ->where('subscriber_id', $this->getSubscriber()->getKey())
-                ->where('status', '!=', InvoiceStatus::Draft))
+            ->query(function (): Builder {
+                $subscriber = $this->getSubscriber();
+
+                return UsageBilling::query('invoice')
+                    ->where('subscriber_type', $subscriber->getMorphClass())
+                    ->where('subscriber_id', $subscriber->getKey())
+                    ->where('status', '!=', InvoiceStatus::Draft);
+            })
             ->heading(__('usage-billing::billing.tenant.invoices.heading'))
             ->defaultSort('issued_at', 'desc')
             ->paginated([5, 10, 25])

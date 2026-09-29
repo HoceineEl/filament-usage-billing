@@ -310,11 +310,12 @@ class InvoiceResource extends Resource
             ->action(function (Invoice $record, array $data): void {
                 $cancelled = app(CancelInvoiceAction::class)->execute($record, $data['reason'], auth()->user());
 
-                $notification = Notification::make()->title(__($cancelled
-                    ? 'usage-billing::billing.invoice.cancel.done'
-                    : 'usage-billing::billing.invoice.cancel.refused'));
-
-                ($cancelled ? $notification->success() : $notification->warning())->send();
+                Notification::make()
+                    ->status($cancelled ? 'success' : 'warning')
+                    ->title(__($cancelled
+                        ? 'usage-billing::billing.invoice.cancel.done'
+                        : 'usage-billing::billing.invoice.cancel.refused'))
+                    ->send();
             });
     }
 
