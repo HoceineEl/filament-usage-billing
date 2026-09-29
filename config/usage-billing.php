@@ -80,6 +80,29 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Payment gateways
+    |--------------------------------------------------------------------------
+    |
+    | `default` names the gateway subscribers pay online through; null keeps
+    | payment offline-only. Register providers with
+    | `app(PaymentGatewayManager::class)->extend('name', fn ($app) => ...)`.
+    | Webhooks arrive at POST {webhook_path}/{gateway}; set the path to null
+    | to leave the route unregistered.
+    |
+    */
+
+    'gateways' => [
+        'default' => env('USAGE_BILLING_GATEWAY'),
+        'webhook_path' => 'usage-billing/webhooks',
+        'drivers' => [
+            'fake' => [
+                'secret' => env('USAGE_BILLING_FAKE_GATEWAY_SECRET', 'fake'),
+            ],
+        ],
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
     | Seller identity
     |--------------------------------------------------------------------------
     |

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace HoceineEl\UsageBilling\Services;
 
 use Carbon\CarbonImmutable;
+use HoceineEl\UsageBilling\Data\GatewayPayment;
 use HoceineEl\UsageBilling\Enums\InvoiceStatus;
 use HoceineEl\UsageBilling\Enums\PaymentStatus;
 use HoceineEl\UsageBilling\Enums\SubscriptionEventType;
@@ -148,6 +149,32 @@ class SubscriptionManager
         ]);
 
         return $payment;
+    }
+
+    /**
+     * Record a payment a gateway has confirmed. The gateway already saw the
+     * money move, so it is validated at once. A redelivered webhook finds the
+     * payment by its reference and changes nothing.
+     */
+    public function recordGatewayPayment(Invoice $invoice, GatewayPayment $confirmed, string $gateway): Payment
+    {
+        /** @var Payment|null $existing */
+        $existing = $invoice->payments()
+            ->where('method', $confirmed->method)
+            ->where('reference', $confirmed->reference)
+            ->first();
+
+        if ($existing instanceof Payment) {
+            return $existing;
+        }
+
+        return $this->validatePayment($this->declarePayment($invoice, [
+            'method' => $confirmed->method,
+            'amount' => $confirmed->amount,
+            'reference' => $confirmed->reference,
+            'paid_at' => $confirmed->paidAt ?? now(),
+            'notes' => "gateway:{$gateway}",
+        ]));
     }
 
     public function validatePayment(Payment $payment, ?Model $actor = null): Payment

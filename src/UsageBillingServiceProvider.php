@@ -16,6 +16,7 @@ use HoceineEl\UsageBilling\Services\InvoiceBuilder;
 use HoceineEl\UsageBilling\Services\InvoiceNumberGenerator;
 use HoceineEl\UsageBilling\Services\ModuleGate;
 use HoceineEl\UsageBilling\Services\ModuleRegistry;
+use HoceineEl\UsageBilling\Services\PaymentGatewayManager;
 use HoceineEl\UsageBilling\Services\SubscriptionManager;
 use HoceineEl\UsageBilling\Services\TermBiller;
 use HoceineEl\UsageBilling\Services\UsageReader;
@@ -53,6 +54,10 @@ class UsageBillingServiceProvider extends PackageServiceProvider
         $this->publishes([
             __DIR__.'/../database/migrations' => database_path('migrations'),
         ], 'usage-billing-migrations');
+
+        if (config('usage-billing.gateways.webhook_path') !== null) {
+            $this->loadRoutesFrom(__DIR__.'/../routes/webhooks.php');
+        }
     }
 
     public function packageRegistered(): void
@@ -68,6 +73,7 @@ class UsageBillingServiceProvider extends PackageServiceProvider
         $this->app->singleton(InvoiceBuilder::class);
         $this->app->singleton(SubscriptionManager::class);
         $this->app->singleton(TermBiller::class);
+        $this->app->singleton(PaymentGatewayManager::class);
 
         $this->app->bindIf(InvoiceRenderer::class, HtmlInvoiceRenderer::class);
     }
