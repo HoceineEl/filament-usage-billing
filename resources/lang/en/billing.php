@@ -57,6 +57,7 @@ return [
         'usage_threshold' => 'Usage threshold reached',
         'invoice_issued' => 'Invoice issued',
         'payment_validated' => 'Payment validated',
+        'invoice_cancelled' => 'Invoice cancelled',
     ],
 
     'denied' => [
@@ -199,6 +200,8 @@ return [
             'start' => 'Create a subscription',
             'issue_term' => 'Invoice the term',
             'upgrade' => 'Move up a plan',
+            'extend_trial' => 'Extend the trial',
+            'grant_grace' => 'Grant a grace period',
             'change_plan' => 'Change plan',
             'cancel' => 'Cancel',
         ],
@@ -209,6 +212,8 @@ return [
             'upgrade' => 'The difference is invoiced pro rata for the months left. The new plan applies on payment.',
             'change_plan' => 'An immediate administrative switch, with no invoice. Use "Move up a plan" to sell a change.',
             'cancel' => 'The subscriber loses access. A term already paid for is not refunded.',
+            'extend_trial' => 'Access continues until the new date. The open trial invoice falls due on that date too.',
+            'grant_grace' => 'Reopens access for the chosen number of days while the payment is sorted out. Nothing owed is written off.',
         ],
         'notifications' => [
             'started' => 'Subscription created',
@@ -218,6 +223,8 @@ return [
             'no_upgrade' => 'Nothing to invoice for that plan',
             'plan_changed' => 'Plan changed',
             'cancelled' => 'Subscription cancelled',
+            'trial_extended' => 'Trial extended',
+            'grace_granted' => 'Access reopened',
         ],
         'empty' => [
             'heading' => 'No subscriptions',
@@ -268,6 +275,16 @@ return [
         'actions' => [
             'record_payment' => 'Record a payment',
             'download' => 'Download',
+        ],
+        'cancel' => [
+            'action' => 'Cancel invoice',
+            'heading' => 'Cancel invoice :number',
+            'description' => 'The invoice keeps its number and stays in the history as cancelled. The subscription is adjusted to what is still owed.',
+            'confirm' => 'Cancel invoice',
+            'reason' => 'Reason',
+            'done' => 'Invoice cancelled',
+            'refused' => 'This invoice can no longer be cancelled: a payment has been declared or received against it.',
+            'bulk_outcome' => ':cancelled cancelled, :skipped skipped.',
         ],
         'help' => [
             'usage' => 'Frozen at issue: this breakdown will not change, even if a client is renamed later.',

@@ -57,6 +57,7 @@ return [
         'usage_threshold' => 'Seuil de consommation atteint',
         'invoice_issued' => 'Facture émise',
         'payment_validated' => 'Paiement validé',
+        'invoice_cancelled' => 'Facture annulée',
     ],
 
     'denied' => [
@@ -199,6 +200,8 @@ return [
             'start' => 'Créer un abonnement',
             'issue_term' => 'Facturer le terme',
             'upgrade' => 'Monter de formule',
+            'extend_trial' => 'Prolonger l\'essai',
+            'grant_grace' => 'Accorder un délai de grâce',
             'change_plan' => 'Changer de formule',
             'cancel' => 'Résilier',
         ],
@@ -209,6 +212,8 @@ return [
             'upgrade' => 'La différence est facturée au prorata des mois restants. La nouvelle formule s\'applique au règlement.',
             'change_plan' => 'Bascule administrative immédiate, sans facturation. Utilisez « Monter de formule » pour vendre un changement.',
             'cancel' => 'L\'abonné perd l\'accès. Le terme déjà réglé n\'est pas remboursé.',
+            'extend_trial' => 'L\'accès continue jusqu\'à la nouvelle date. La facture d\'essai en cours devient exigible à cette même date.',
+            'grant_grace' => 'Rouvre l\'accès pendant le nombre de jours choisi, le temps de régler le paiement. Aucune somme due n\'est annulée.',
         ],
         'notifications' => [
             'started' => 'Abonnement créé',
@@ -218,6 +223,8 @@ return [
             'no_upgrade' => 'Aucun complément à facturer pour cette formule',
             'plan_changed' => 'Formule modifiée',
             'cancelled' => 'Abonnement résilié',
+            'trial_extended' => 'Essai prolongé',
+            'grace_granted' => 'Accès rouvert',
         ],
         'empty' => [
             'heading' => 'Aucun abonnement',
@@ -268,6 +275,16 @@ return [
         'actions' => [
             'record_payment' => 'Enregistrer un règlement',
             'download' => 'Télécharger',
+        ],
+        'cancel' => [
+            'action' => 'Annuler la facture',
+            'heading' => 'Annuler la facture :number',
+            'description' => 'La facture garde son numéro et reste dans l\'historique comme annulée. L\'abonnement est ajusté à ce qui reste dû.',
+            'confirm' => 'Annuler la facture',
+            'reason' => 'Motif',
+            'done' => 'Facture annulée',
+            'refused' => 'Cette facture ne peut plus être annulée : un paiement a été déclaré ou reçu.',
+            'bulk_outcome' => ':cancelled annulée(s), :skipped ignorée(s).',
         ],
         'help' => [
             'usage' => 'Figée à l\'émission : ce détail ne change plus, même si un client est renommé ensuite.',

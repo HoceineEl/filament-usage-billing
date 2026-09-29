@@ -6,6 +6,8 @@ namespace HoceineEl\UsageBilling\Filament\Resources\Invoices;
 
 use BackedEnum;
 use Filament\Actions\Action;
+use Filament\Actions\BulkAction;
+use Filament\Actions\BulkActionGroup;
 use Filament\Actions\ViewAction;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Select;
@@ -22,6 +24,7 @@ use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
+use HoceineEl\UsageBilling\Actions\CancelInvoiceAction;
 use HoceineEl\UsageBilling\Contracts\InvoiceRenderer;
 use HoceineEl\UsageBilling\Enums\InvoiceStatus;
 use HoceineEl\UsageBilling\Enums\PaymentMethod;
@@ -31,6 +34,7 @@ use HoceineEl\UsageBilling\Filament\Resources\Invoices\Pages\ViewInvoice;
 use HoceineEl\UsageBilling\Models\Invoice;
 use HoceineEl\UsageBilling\Services\SubscriptionManager;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\Storage;
 
 class InvoiceResource extends Resource
@@ -214,6 +218,10 @@ class InvoiceResource extends Resource
                 ViewAction::make(),
                 static::recordPaymentAction(),
                 static::downloadAction(),
+                static::cancelAction(),
+            ])
+            ->toolbarActions([
+                BulkActionGroup::make([static::cancelBulkAction()]),
             ])
             ->emptyStateHeading(__('usage-billing::billing.invoice.empty.heading'))
             ->emptyStateDescription(__('usage-billing::billing.invoice.empty.description'));
@@ -282,6 +290,71 @@ class InvoiceResource extends Resource
                     ->title(__('usage-billing::billing.payment.notifications.recorded'))
                     ->send();
             });
+    }
+
+    /**
+     * Annuls a facture issued in error. It keeps its number, so the yearly
+     * sequence stays gapless.
+     */
+    public static function cancelAction(): Action
+    {
+        return Action::make('cancelInvoice')
+            ->label(__('usage-billing::billing.invoice.cancel.action'))
+            ->icon(Heroicon::XCircle)
+            ->color('danger')
+            ->visible(fn (Invoice $record): bool => app(CancelInvoiceAction::class)->canCancel($record))
+            ->modalHeading(fn (Invoice $record): string => __('usage-billing::billing.invoice.cancel.heading', ['number' => $record->number]))
+            ->modalDescription(__('usage-billing::billing.invoice.cancel.description'))
+            ->modalSubmitActionLabel(__('usage-billing::billing.invoice.cancel.confirm'))
+            ->schema(static::cancellationSchema())
+            ->action(function (Invoice $record, array $data): void {
+                $cancelled = app(CancelInvoiceAction::class)->execute($record, $data['reason'], auth()->user());
+
+                $notification = Notification::make()->title(__($cancelled
+                    ? 'usage-billing::billing.invoice.cancel.done'
+                    : 'usage-billing::billing.invoice.cancel.refused'));
+
+                ($cancelled ? $notification->success() : $notification->warning())->send();
+            });
+    }
+
+    public static function cancelBulkAction(): BulkAction
+    {
+        return BulkAction::make('cancelInvoices')
+            ->label(__('usage-billing::billing.invoice.cancel.action'))
+            ->icon(Heroicon::XCircle)
+            ->color('danger')
+            ->deselectRecordsAfterCompletion()
+            ->modalDescription(__('usage-billing::billing.invoice.cancel.description'))
+            ->modalSubmitActionLabel(__('usage-billing::billing.invoice.cancel.confirm'))
+            ->schema(static::cancellationSchema())
+            ->action(function (Collection $records, array $data): void {
+                $action = app(CancelInvoiceAction::class);
+                $cancelled = $records->filter(fn (Invoice $record): bool => $action->execute($record, $data['reason'], auth()->user()));
+
+                Notification::make()
+                    ->success()
+                    ->title(__('usage-billing::billing.invoice.cancel.done'))
+                    ->body(__('usage-billing::billing.invoice.cancel.bulk_outcome', [
+                        'cancelled' => $cancelled->count(),
+                        'skipped' => $records->count() - $cancelled->count(),
+                    ]))
+                    ->send();
+            });
+    }
+
+    /**
+     * @return array<int, Textarea>
+     */
+    protected static function cancellationSchema(): array
+    {
+        return [
+            Textarea::make('reason')
+                ->label(__('usage-billing::billing.invoice.cancel.reason'))
+                ->required()
+                ->rows(3)
+                ->maxLength(500),
+        ];
     }
 
     private static function downloadAction(): Action

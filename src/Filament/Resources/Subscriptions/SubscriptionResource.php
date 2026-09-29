@@ -7,7 +7,9 @@ namespace HoceineEl\UsageBilling\Filament\Resources\Subscriptions;
 use BackedEnum;
 use Filament\Actions\Action;
 use Filament\Actions\ViewAction;
+use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Select;
+use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
 use Filament\Infolists\Components\TextEntry;
 use Filament\Notifications\Notification;
@@ -18,6 +20,8 @@ use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
+use HoceineEl\UsageBilling\Actions\ExtendTrialAction;
+use HoceineEl\UsageBilling\Actions\GrantBillingGraceAction;
 use HoceineEl\UsageBilling\Enums\SubscriptionStatus;
 use HoceineEl\UsageBilling\Filament\Concerns\BelongsToBillingNavigation;
 use HoceineEl\UsageBilling\Filament\Resources\Subscriptions\Pages\ListSubscriptions;
@@ -127,6 +131,8 @@ class SubscriptionResource extends Resource
             ->recordActions([
                 ViewAction::make(),
                 static::issueTermAction(),
+                static::extendTrialAction(),
+                static::grantGraceAction(),
                 static::upgradeAction(),
                 static::changePlanAction(),
                 static::cancelAction(),
@@ -250,6 +256,58 @@ class SubscriptionResource extends Resource
                     ->title(__('usage-billing::billing.subscription.notifications.term_invoiced', [
                         'number' => $invoice?->number ?? '—',
                     ]))
+                    ->send();
+            });
+    }
+
+    public static function extendTrialAction(): Action
+    {
+        return Action::make('extendTrial')
+            ->label(__('usage-billing::billing.subscription.actions.extend_trial'))
+            ->icon(Heroicon::CalendarDays)
+            ->color('gray')
+            ->visible(fn (Subscription $record): bool => app(ExtendTrialAction::class)->canExtend($record))
+            ->modalDescription(__('usage-billing::billing.subscription.help.extend_trial'))
+            ->schema(fn (Subscription $record): array => [
+                DatePicker::make('trial_ends_at')
+                    ->label(__('usage-billing::billing.subscription.fields.trial_ends_at'))
+                    ->default(($record->trial_ends_at?->isFuture() ? $record->trial_ends_at : now())->addDays(7))
+                    ->minDate(now()->addDay())
+                    ->required(),
+            ])
+            ->action(function (Subscription $record, array $data): void {
+                app(ExtendTrialAction::class)->execute($record, $data['trial_ends_at'], auth()->user());
+
+                Notification::make()
+                    ->success()
+                    ->title(__('usage-billing::billing.subscription.notifications.trial_extended'))
+                    ->send();
+            });
+    }
+
+    public static function grantGraceAction(): Action
+    {
+        return Action::make('grantGrace')
+            ->label(__('usage-billing::billing.subscription.actions.grant_grace'))
+            ->icon(Heroicon::LockOpen)
+            ->color('warning')
+            ->visible(fn (Subscription $record): bool => app(GrantBillingGraceAction::class)->isLocked($record))
+            ->modalDescription(__('usage-billing::billing.subscription.help.grant_grace'))
+            ->schema([
+                TextInput::make('days')
+                    ->label(__('usage-billing::billing.plan.fields.grace_days'))
+                    ->numeric()
+                    ->minValue(1)
+                    ->default((int) config('usage-billing.grace.admin_days', 30))
+                    ->suffix(__('usage-billing::billing.plan.units.days'))
+                    ->required(),
+            ])
+            ->action(function (Subscription $record, array $data): void {
+                app(GrantBillingGraceAction::class)->execute($record, auth()->user(), (int) $data['days']);
+
+                Notification::make()
+                    ->success()
+                    ->title(__('usage-billing::billing.subscription.notifications.grace_granted'))
                     ->send();
             });
     }
