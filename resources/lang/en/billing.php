@@ -345,6 +345,89 @@ return [
         ],
     ],
 
+    'tenant' => [
+        'nav' => 'Billing',
+        'title' => 'Subscription and billing',
+        'subheading' => 'Current period: :period',
+        'empty' => [
+            'heading' => 'No subscription yet',
+            'description' => 'Your account does not have a plan yet. Get in touch with us to activate one.',
+        ],
+        'summary' => [
+            'plan' => 'Plan',
+            'price' => 'Subscription price',
+            'per_term' => '{1} per month, excl. tax|[2,*] per :months months, excl. tax',
+            'term_ends' => 'Paid until',
+            'days_left' => '{0} Ends today|{1} 1 day left|[2,*] :count days left',
+            'not_started' => 'Term not started yet',
+        ],
+        'term' => [
+            'awaiting_heading' => 'Awaiting payment',
+            'awaiting_description' => 'Your subscription starts as soon as your payment is confirmed.',
+            'trial_heading' => 'Free trial until :date',
+            'trial_description' => 'Pay the invoice below before the trial ends to keep your access.',
+            'renewal_heading' => '{0} Renews today|{1} Renews tomorrow|[2,*] Renews in :count days',
+            'renewal_description' => 'The invoice for the next term will reach you before this one ends.',
+            'renewal_invoiced' => 'The invoice for the next term is available below.',
+        ],
+        'modules' => [
+            'heading' => 'What is included',
+            'description' => 'Monthly allowances reset on the 1st of each month, daily ones at midnight.',
+            'this_month' => 'this month',
+            'today' => 'today',
+            'unlimited' => 'Unlimited',
+            'remaining' => ':count :unit left',
+            'over_by' => ':count :unit over the allowance',
+            'month_total' => ':count :unit this month',
+            'near_limit' => 'Almost used up. Consider a bigger plan.',
+        ],
+        'breakdown' => [
+            'heading' => 'Usage breakdown',
+            'description' => 'What each item used this month. For information only: invoicing stays at account level.',
+        ],
+        'payment_instructions' => [
+            'heading' => 'How to pay invoice :number',
+            'description' => 'Transfer :amount by :date and quote the invoice number as the reference.',
+            'contact' => 'Pay :amount by :date using one of the options below.',
+            'beneficiary' => 'Beneficiary',
+            'bank' => 'Bank',
+            'rib' => 'Account number',
+            'reference' => 'Reference',
+        ],
+        'invoices' => [
+            'heading' => 'Your invoices',
+            'empty_heading' => 'No invoices yet',
+            'empty_description' => 'Your invoices appear here as soon as they are issued.',
+        ],
+        'fields' => [
+            'receipt' => 'Proof of payment',
+        ],
+        'actions' => [
+            'pay_online' => 'Pay online',
+            'declare_payment' => 'I have paid',
+            'send_declaration' => 'Send',
+        ],
+        'help' => [
+            'declare_payment' => 'Tell us about a transfer or cheque. The invoice is marked paid once we see the money arrive.',
+            'reference' => 'Transfer or cheque number.',
+            'receipt' => 'Transfer advice or a photo of the cheque. PDF or image, 5 MB max.',
+        ],
+        'notifications' => [
+            'payment_declared' => 'Payment declared',
+            'payment_declared_body' => 'We will check it and update the invoice shortly.',
+        ],
+        'locked' => [
+            'heading' => 'Access suspended',
+            'contact_support' => 'Contact us',
+            'no_subscription' => 'Your account has no subscription yet. Get in touch with us to activate one.',
+            'pending_payment' => 'Your subscription starts once its first invoice is paid.',
+            'past_due' => 'An invoice is still unpaid. Settle it to get your access back.',
+            'suspended' => 'Your subscription is suspended. Please get in touch with us.',
+            'cancelled' => 'Your subscription has been cancelled.',
+            'expired' => 'Your subscription has expired. Pay the renewal invoice to continue.',
+        ],
+    ],
+
     'event' => [
         'plural' => 'History',
         'fields' => [

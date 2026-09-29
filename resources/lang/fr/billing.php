@@ -345,6 +345,89 @@ return [
         ],
     ],
 
+    'tenant' => [
+        'nav' => 'Facturation',
+        'title' => 'Abonnement et facturation',
+        'subheading' => 'Période en cours : :period',
+        'empty' => [
+            'heading' => 'Aucun abonnement pour le moment',
+            'description' => 'Votre compte n\'a pas encore de formule. Contactez-nous pour en activer une.',
+        ],
+        'summary' => [
+            'plan' => 'Formule',
+            'price' => 'Prix de l\'abonnement',
+            'per_term' => '{1} par mois, HT|[2,*] pour :months mois, HT',
+            'term_ends' => 'Réglé jusqu\'au',
+            'days_left' => '{0} Se termine aujourd\'hui|{1} 1 jour restant|[2,*] :count jours restants',
+            'not_started' => 'Terme pas encore commencé',
+        ],
+        'term' => [
+            'awaiting_heading' => 'En attente de paiement',
+            'awaiting_description' => 'Votre abonnement démarre dès que votre paiement est confirmé.',
+            'trial_heading' => 'Essai gratuit jusqu\'au :date',
+            'trial_description' => 'Réglez la facture ci-dessous avant la fin de l\'essai pour garder votre accès.',
+            'renewal_heading' => '{0} Renouvellement aujourd\'hui|{1} Renouvellement demain|[2,*] Renouvellement dans :count jours',
+            'renewal_description' => 'La facture du prochain terme vous parviendra avant la fin de celui-ci.',
+            'renewal_invoiced' => 'La facture du prochain terme est disponible ci-dessous.',
+        ],
+        'modules' => [
+            'heading' => 'Ce qui est inclus',
+            'description' => 'Les quotas mensuels se renouvellent le 1er de chaque mois, les quotas journaliers à minuit.',
+            'this_month' => 'ce mois-ci',
+            'today' => 'aujourd\'hui',
+            'unlimited' => 'Illimité',
+            'remaining' => ':count :unit restants',
+            'over_by' => ':count :unit au-delà du quota',
+            'month_total' => ':count :unit ce mois-ci',
+            'near_limit' => 'Presque épuisé. Pensez à une formule supérieure.',
+        ],
+        'breakdown' => [
+            'heading' => 'Détail de la consommation',
+            'description' => 'Ce que chaque élément a consommé ce mois-ci. À titre indicatif : la facture reste au niveau du compte.',
+        ],
+        'payment_instructions' => [
+            'heading' => 'Comment régler la facture :number',
+            'description' => 'Virez :amount avant le :date en indiquant le numéro de facture comme référence.',
+            'contact' => 'Réglez :amount avant le :date avec l\'un des moyens ci-dessous.',
+            'beneficiary' => 'Bénéficiaire',
+            'bank' => 'Banque',
+            'rib' => 'RIB',
+            'reference' => 'Référence',
+        ],
+        'invoices' => [
+            'heading' => 'Vos factures',
+            'empty_heading' => 'Aucune facture pour le moment',
+            'empty_description' => 'Vos factures apparaissent ici dès leur émission.',
+        ],
+        'fields' => [
+            'receipt' => 'Justificatif de paiement',
+        ],
+        'actions' => [
+            'pay_online' => 'Payer en ligne',
+            'declare_payment' => 'J\'ai payé',
+            'send_declaration' => 'Envoyer',
+        ],
+        'help' => [
+            'declare_payment' => 'Signalez-nous un virement ou un chèque. La facture passe à réglée dès que nous constatons l\'encaissement.',
+            'reference' => 'Numéro de virement ou de chèque.',
+            'receipt' => 'Avis de virement ou photo du chèque. PDF ou image, 5 Mo max.',
+        ],
+        'notifications' => [
+            'payment_declared' => 'Paiement déclaré',
+            'payment_declared_body' => 'Nous le vérifions et mettons la facture à jour rapidement.',
+        ],
+        'locked' => [
+            'heading' => 'Accès suspendu',
+            'contact_support' => 'Nous contacter',
+            'no_subscription' => 'Votre compte n\'a pas encore d\'abonnement. Contactez-nous pour en activer un.',
+            'pending_payment' => 'Votre abonnement démarre dès le règlement de sa première facture.',
+            'past_due' => 'Une facture reste impayée. Réglez-la pour retrouver votre accès.',
+            'suspended' => 'Votre abonnement est suspendu. Merci de nous contacter.',
+            'cancelled' => 'Votre abonnement a été résilié.',
+            'expired' => 'Votre abonnement a expiré. Réglez la facture de renouvellement pour continuer.',
+        ],
+    ],
+
     'event' => [
         'plural' => 'Historique',
         'fields' => [

@@ -75,6 +75,7 @@ return [
         'tva_rate' => env('USAGE_BILLING_TVA_RATE', 20),
         'payment_term_days' => 30,
         'receipts_disk' => env('USAGE_BILLING_RECEIPTS_DISK', 'local'),
+        'receipts_directory' => 'usage-billing/receipts',
         'pdf_disk' => env('USAGE_BILLING_PDF_DISK', 'local'),
     ],
 
