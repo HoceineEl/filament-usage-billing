@@ -31,7 +31,7 @@ class SubscriptionManager
      * payment rather than active. `activateTerm()` is what turns it on, and
      * that only happens once a payment has been validated.
      */
-    public function start(Model $subscriber, Plan $plan, bool $withTrial = true): Subscription
+    public function start(Model $subscriber, Plan $plan, bool $withTrial = true, ?int $seats = null): Subscription
     {
         $trialEndsAt = $withTrial && $plan->trial_days > 0
             ? now()->addDays($plan->trial_days)
@@ -43,6 +43,7 @@ class SubscriptionManager
             'subscriber_id' => $subscriber->getKey(),
             'plan_id' => $plan->getKey(),
             'status' => $trialEndsAt !== null ? SubscriptionStatus::Trialing : SubscriptionStatus::PendingPayment,
+            'seats' => $plan->isSeatBased() ? $plan->billableSeats($seats) : null,
             'starts_at' => now(),
             'trial_ends_at' => $trialEndsAt,
         ]);
@@ -239,7 +240,17 @@ class SubscriptionManager
 
             if ($target instanceof Plan) {
                 $this->changePlan($subscription, $target, $actor);
+
+                if (isset($intent['seats'])) {
+                    $this->setSeats($subscription, (int) $intent['seats'], $actor);
+                }
             }
+
+            return;
+        }
+
+        if (isset($intent['add_seats'])) {
+            $this->setSeats($subscription, (int) $subscription->seats + (int) $intent['add_seats'], $actor);
 
             return;
         }
@@ -250,6 +261,7 @@ class SubscriptionManager
                 CarbonImmutable::parse($intent['term_starts_at'])->startOfDay(),
                 CarbonImmutable::parse($intent['term_ends_at'])->endOfDay(),
                 $actor,
+                isset($intent['seats']) ? (int) $intent['seats'] : null,
             );
 
             return;
@@ -272,15 +284,71 @@ class SubscriptionManager
         CarbonImmutable $startsAt,
         CarbonImmutable $endsAt,
         ?Model $actor = null,
+        ?int $seats = null,
     ): Subscription {
         $isFirstTerm = $subscription->ends_at === null;
+
+        if ($seats !== null) {
+            $this->setSeats($subscription, $seats, $actor);
+        }
 
         return $this->transitionTo($subscription, SubscriptionStatus::Active, $actor, [
             'starts_at' => $isFirstTerm ? $startsAt : $subscription->starts_at,
             'ends_at' => $endsAt,
             'trial_ends_at' => null,
             'grace_ends_at' => null,
+            'renewal_seats' => null,
         ]);
+    }
+
+    /**
+     * Seats paid for. Allowances follow at once, since they are resolved from
+     * the subscription on every check.
+     */
+    public function setSeats(Subscription $subscription, int $seats, ?Model $actor = null): Subscription
+    {
+        $from = $subscription->seats;
+
+        if ($from === $seats) {
+            return $subscription;
+        }
+
+        $subscription->forceFill(['seats' => $seats])->save();
+
+        $subscription->events()->create([
+            'type' => SubscriptionEventType::SeatsChanged,
+            'from_value' => $from === null ? null : (string) $from,
+            'to_value' => (string) $seats,
+            'actor_type' => $actor?->getMorphClass(),
+            'actor_id' => $actor?->getKey(),
+        ]);
+
+        return $subscription;
+    }
+
+    /**
+     * Fewer seats from the next term. A paid term is never refunded, so a
+     * reduction only changes what the renewal facture will bill.
+     */
+    public function scheduleRenewalSeats(Subscription $subscription, int $seats, ?Model $actor = null): Subscription
+    {
+        $plan = $subscription->plan;
+        $seats = $plan instanceof Plan ? $plan->billableSeats($seats) : max(1, $seats);
+
+        $subscription->forceFill([
+            'renewal_seats' => $seats === $subscription->seats ? null : $seats,
+        ])->save();
+
+        $subscription->events()->create([
+            'type' => SubscriptionEventType::SeatsChanged,
+            'from_value' => $subscription->seats === null ? null : (string) $subscription->seats,
+            'to_value' => (string) $seats,
+            'actor_type' => $actor?->getMorphClass(),
+            'actor_id' => $actor?->getKey(),
+            'meta' => ['applies' => 'renewal'],
+        ]);
+
+        return $subscription;
     }
 
     /**

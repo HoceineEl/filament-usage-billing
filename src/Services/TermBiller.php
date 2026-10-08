@@ -113,18 +113,9 @@ class TermBiller
                 'usage_snapshot' => $this->usageSnapshot($subscription),
             ]);
 
-            $invoice->lines()->create([
-                'description' => __('usage-billing::billing.lines.term', [
-                    'plan' => $plan->displayName(),
-                    'from' => $termStart->translatedFormat('d/m/Y'),
-                    'to' => $termEnd->translatedFormat('d/m/Y'),
-                ]),
-                'quantity' => 1,
-                'unit_price_ht' => (float) $plan->price_ht,
-                'amount_ht' => (float) $plan->price_ht,
-                'sort_order' => 0,
-            ]);
+            $seats = $plan->isSeatBased() ? $subscription->seatsForNextTerm() : null;
 
+            $this->writeTermLines($invoice, $plan, $termStart, $termEnd, $seats);
             $this->recalculateTotals($invoice);
 
             $invoice->forceFill([
@@ -132,10 +123,11 @@ class TermBiller
                 'status' => InvoiceStatus::Issued,
                 'issued_at' => now(),
                 'due_at' => $dueAt,
-                'notes' => json_encode([
+                'notes' => json_encode(array_filter([
                     'term_starts_at' => $termStart->toDateString(),
                     'term_ends_at' => $termEnd->toDateString(),
-                ]),
+                    'seats' => $seats,
+                ], fn (mixed $value): bool => $value !== null)),
             ])->save();
 
             $subscription->events()->create([
@@ -184,7 +176,7 @@ class TermBiller
      * Bill the difference when a cabinet outgrows its plan mid-term, charged
      * only for the months it has left rather than a fresh full year.
      */
-    public function issueUpgradeInvoice(Subscription $subscription, Plan $target): ?Invoice
+    public function issueUpgradeInvoice(Subscription $subscription, Plan $target, ?int $seats = null): ?Invoice
     {
         $current = $subscription->plan;
         $subscriber = $subscription->subscriber;
@@ -193,7 +185,8 @@ class TermBiller
             return null;
         }
 
-        $difference = (float) $target->price_ht - (float) $current->price_ht;
+        $seats = $target->isSeatBased() ? $target->billableSeats($seats ?? $subscription->seats) : null;
+        $difference = $target->termPriceFor($seats) - $subscription->termPrice();
 
         if ($difference <= 0) {
             return null;
@@ -205,7 +198,7 @@ class TermBiller
             return null;
         }
 
-        $invoice = DB::transaction(function () use ($subscription, $subscriber, $current, $target, $amount): Invoice {
+        $invoice = DB::transaction(function () use ($subscription, $subscriber, $current, $target, $amount, $seats): Invoice {
             /** @var Invoice $invoice */
             $invoice = UsageBilling::query('invoice')->create([
                 ...$this->buyerSnapshot($subscriber),
@@ -237,7 +230,10 @@ class TermBiller
                 'status' => InvoiceStatus::Issued,
                 'issued_at' => now(),
                 'due_at' => now()->addDays((int) $target->payment_term_days),
-                'notes' => json_encode(['upgrade_to_plan_id' => $target->getKey()]),
+                'notes' => json_encode(array_filter([
+                    'upgrade_to_plan_id' => $target->getKey(),
+                    'seats' => $seats,
+                ], fn (mixed $value): bool => $value !== null)),
             ])->save();
 
             $subscription->events()->create([
@@ -257,6 +253,110 @@ class TermBiller
         InvoiceIssued::dispatch($invoice);
 
         return $invoice;
+    }
+
+    /**
+     * Bill extra seats bought mid-term, prorated to the months left. The seats
+     * are granted once this facture is paid, like any other purchase.
+     */
+    public function issueSeatInvoice(Subscription $subscription, int $additional): ?Invoice
+    {
+        $plan = $subscription->plan;
+        $subscriber = $subscription->subscriber;
+
+        if ($additional < 1 || ! $plan instanceof Plan || ! $plan->isSeatBased() || ! $subscriber instanceof Model) {
+            return null;
+        }
+
+        $ratio = $this->remainingTermRatio($subscription);
+        $unitPrice = round((float) $plan->seat_price_ht * $ratio, 2);
+
+        if ($unitPrice <= 0) {
+            return null;
+        }
+
+        $invoice = DB::transaction(function () use ($subscription, $subscriber, $plan, $additional, $unitPrice): Invoice {
+            /** @var Invoice $invoice */
+            $invoice = UsageBilling::query('invoice')->create([
+                ...$this->buyerSnapshot($subscriber),
+                'subscriber_type' => $subscriber->getMorphClass(),
+                'subscriber_id' => $subscriber->getKey(),
+                'subscription_id' => $subscription->getKey(),
+                'period' => now()->format('Y-m'),
+                'status' => InvoiceStatus::Draft,
+                'currency' => $plan->currency ?? UsageBilling::currency(),
+                'tva_rate' => $plan->tva_rate,
+            ]);
+
+            $invoice->lines()->create([
+                'description' => __('usage-billing::billing.lines.seats_added', [
+                    'count' => $additional,
+                    'plan' => $plan->displayName(),
+                    'until' => $subscription->ends_at?->translatedFormat('d/m/Y') ?? '',
+                ]),
+                'quantity' => $additional,
+                'unit_price_ht' => $unitPrice,
+                'amount_ht' => round($additional * $unitPrice, 2),
+                'sort_order' => 0,
+            ]);
+
+            $this->recalculateTotals($invoice);
+
+            $invoice->forceFill([
+                'number' => $this->numbers->next(),
+                'status' => InvoiceStatus::Issued,
+                'issued_at' => now(),
+                'due_at' => now()->addDays((int) $plan->payment_term_days),
+                'notes' => json_encode(['add_seats' => $additional]),
+            ])->save();
+
+            $subscription->events()->create([
+                'type' => SubscriptionEventType::InvoiceIssued,
+                'to_value' => $invoice->number,
+                'meta' => [
+                    'kind' => 'seats',
+                    'seats' => $additional,
+                    'total_ttc' => (float) $invoice->total_ttc,
+                ],
+            ]);
+
+            return $invoice;
+        });
+
+        InvoiceIssued::dispatch($invoice);
+
+        return $invoice;
+    }
+
+    private function writeTermLines(Invoice $invoice, Plan $plan, CarbonImmutable $termStart, CarbonImmutable $termEnd, ?int $seats): void
+    {
+        $replacements = [
+            'plan' => $plan->displayName(),
+            'from' => $termStart->translatedFormat('d/m/Y'),
+            'to' => $termEnd->translatedFormat('d/m/Y'),
+        ];
+
+        $order = 0;
+
+        if (! $plan->isSeatBased() || (float) $plan->price_ht > 0) {
+            $invoice->lines()->create([
+                'description' => __('usage-billing::billing.lines.term', $replacements),
+                'quantity' => 1,
+                'unit_price_ht' => (float) $plan->price_ht,
+                'amount_ht' => (float) $plan->price_ht,
+                'sort_order' => $order++,
+            ]);
+        }
+
+        if ($seats !== null) {
+            $invoice->lines()->create([
+                'description' => __('usage-billing::billing.lines.term_seats', [...$replacements, 'count' => $seats]),
+                'quantity' => $seats,
+                'unit_price_ht' => (float) $plan->seat_price_ht,
+                'amount_ht' => round($seats * (float) $plan->seat_price_ht, 2),
+                'sort_order' => $order,
+            ]);
+        }
     }
 
     /**

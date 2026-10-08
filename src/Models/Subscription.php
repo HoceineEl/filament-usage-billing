@@ -11,6 +11,7 @@ use HoceineEl\UsageBilling\Models\Concerns\UsesConfiguredTable;
 use HoceineEl\UsageBilling\UsageBilling;
 use Illuminate\Database\Eloquent\Attributes\Scope;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -41,6 +42,8 @@ class Subscription extends Model
     {
         return [
             'status' => SubscriptionStatus::class,
+            'seats' => 'integer',
+            'renewal_seats' => 'integer',
             'starts_at' => 'immutable_datetime',
             'ends_at' => 'immutable_datetime',
             'trial_ends_at' => 'immutable_datetime',
@@ -185,8 +188,63 @@ class Subscription extends Model
             && $this->grace_ends_at->isFuture();
     }
 
+    /**
+     * Seats the allowances are computed from: what was paid for, or the plan
+     * floor while nothing has been paid yet (a trial).
+     */
+    public function effectiveSeats(): int
+    {
+        return $this->plan?->billableSeats($this->seats) ?? max(1, (int) $this->seats);
+    }
+
+    /**
+     * Seats the next term will be billed for.
+     */
+    public function seatsForNextTerm(): int
+    {
+        return $this->plan?->billableSeats($this->renewal_seats ?? $this->seats) ?? 1;
+    }
+
+    /**
+     * What the current term is worth, for prorating a change of plan.
+     */
+    public function termPrice(): float
+    {
+        return $this->plan?->termPriceFor($this->seats) ?? 0.0;
+    }
+
     public function pricingFor(Module|string $module): ?PlanModule
     {
-        return $this->plan?->pricingFor($module);
+        $pricing = $this->plan?->pricingFor($module);
+
+        return $pricing === null ? null : $this->resolve($pricing);
+    }
+
+    /**
+     * Every module row of the plan as it applies to this subscription.
+     *
+     * @return Collection<int, PlanModule>
+     */
+    public function resolvedPlanModules(): Collection
+    {
+        $this->loadMissing('plan.planModules.module');
+
+        return $this->plan?->planModules
+            ->map(fn (PlanModule $pricing): PlanModule => $this->resolve($pricing))
+            ?? new Collection;
+    }
+
+    private function resolve(PlanModule $pricing): PlanModule
+    {
+        $plan = $this->plan;
+
+        if (! $plan instanceof Plan || ! $plan->isSeatBased()) {
+            return $pricing;
+        }
+
+        return $pricing->forSeats(
+            $this->effectiveSeats(),
+            $pricing->module?->key === $plan->seat_module,
+        );
     }
 }

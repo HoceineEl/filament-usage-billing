@@ -45,10 +45,8 @@ class UsageSynchronizer
             return collect();
         }
 
-        $subscription->loadMissing('plan.planModules.module');
-
-        return $subscription->plan
-            ->planModules
+        return $subscription
+            ->resolvedPlanModules()
             ->filter(fn (PlanModule $pricing): bool => $pricing->module?->is_active === true)
             ->mapWithKeys(function (PlanModule $pricing) use ($subscription, $subscriber, $period, $persist): array {
                 $key = (string) $pricing->module->key;

@@ -58,6 +58,7 @@ return [
         'invoice_issued' => 'Facture émise',
         'payment_validated' => 'Paiement validé',
         'invoice_cancelled' => 'Facture annulée',
+        'seats_changed' => 'Nombre de places modifié',
     ],
 
     'reset_period' => [
@@ -82,6 +83,8 @@ return [
         'upgrade' => 'Passage de :from à :to — jusqu\'au :until',
         'base_plan' => ':plan — :period',
         'overage' => ':module — :unit au-delà des :allowance incluses',
+        'term_seats' => ':plan — :count place(s) du :from au :to',
+        'seats_added' => ':plan — :count place(s) supplémentaire(s) jusqu\'au :until',
     ],
 
     'plan' => [
@@ -116,6 +119,10 @@ return [
             'is_public' => 'Visible publiquement',
             'modules_count' => 'Modules',
             'subscribers' => 'Abonnés',
+            'seat_module' => 'Module facturé à la place',
+            'seat_price_ht' => 'Prix HT par place et par terme',
+            'min_seats' => 'Minimum de places',
+            'per_seat' => 'Par place',
         ],
         'price_breakdown' => 'Soit :ttc :currency TTC pour :months mois · :monthly :currency HT par mois',
         'units' => [
@@ -138,6 +145,8 @@ return [
             'unit_price_ht' => 'Vide = l\'usage s\'arrête au quota au lieu d\'être facturé.',
             'hard_ceiling' => 'Vide = le dépassement n\'est jamais bloqué.',
             'is_public' => 'Décochez pour une formule négociée, réservée à certains cabinets.',
+            'seat_module' => 'Vide = prix fixe. Choisir un module (ex. clients actifs) vend la formule à la place : son quota devient le nombre de places payées.',
+            'per_seat' => 'Coché = le quota est accordé pour chaque place payée.',
         ],
         'summary' => [
             'unlimited' => 'illimité',

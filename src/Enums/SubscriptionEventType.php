@@ -17,6 +17,7 @@ enum SubscriptionEventType: string implements HasLabel
     case InvoiceIssued = 'invoice_issued';
     case PaymentValidated = 'payment_validated';
     case InvoiceCancelled = 'invoice_cancelled';
+    case SeatsChanged = 'seats_changed';
 
     public function getLabel(): string
     {

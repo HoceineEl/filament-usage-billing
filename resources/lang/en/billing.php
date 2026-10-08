@@ -58,6 +58,7 @@ return [
         'invoice_issued' => 'Invoice issued',
         'payment_validated' => 'Payment validated',
         'invoice_cancelled' => 'Invoice cancelled',
+        'seats_changed' => 'Seats changed',
     ],
 
     'reset_period' => [
@@ -82,6 +83,8 @@ return [
         'upgrade' => 'Upgrade from :from to :to — until :until',
         'base_plan' => ':plan — :period',
         'overage' => ':module — :unit beyond the :allowance included',
+        'term_seats' => ':plan — :count seat(s) from :from to :to',
+        'seats_added' => ':plan — :count extra seat(s) until :until',
     ],
 
     'plan' => [
@@ -116,6 +119,10 @@ return [
             'is_public' => 'Publicly listed',
             'modules_count' => 'Modules',
             'subscribers' => 'Subscribers',
+            'seat_module' => 'Module billed per seat',
+            'seat_price_ht' => 'Price per seat per term, excl. tax',
+            'min_seats' => 'Minimum seats',
+            'per_seat' => 'Per seat',
         ],
         'price_breakdown' => 'That is :ttc :currency incl. tax for :months months · :monthly :currency excl. tax per month',
         'units' => [
@@ -138,6 +145,8 @@ return [
             'unit_price_ht' => 'Empty means usage stops at the allowance instead of billing.',
             'hard_ceiling' => 'Empty means overage is never blocked.',
             'is_public' => 'Uncheck for a negotiated plan offered to specific accounts only.',
+            'seat_module' => 'Empty = flat price. Pick a module (e.g. active clients) to sell the plan per seat: its allowance becomes the seats paid for.',
+            'per_seat' => 'Checked = the allowance is granted for every seat paid for.',
         ],
         'summary' => [
             'unlimited' => 'unlimited',

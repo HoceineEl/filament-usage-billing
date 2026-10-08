@@ -126,6 +126,25 @@ class PlanResource extends Resource
                             ->required()
                             ->default(fn (): string => UsageBilling::currency())
                             ->maxLength(3),
+                        Select::make('seat_module')
+                            ->label(__('usage-billing::billing.plan.fields.seat_module'))
+                            ->options(fn (): array => static::moduleKeyOptions())
+                            ->placeholder('—')
+                            ->live()
+                            ->columnSpanFull()
+                            ->helperText(__('usage-billing::billing.plan.help.seat_module')),
+                        TextInput::make('seat_price_ht')
+                            ->label(__('usage-billing::billing.plan.fields.seat_price_ht'))
+                            ->numeric()
+                            ->minValue(0)
+                            ->required(fn (Get $get): bool => filled($get('seat_module')))
+                            ->visible(fn (Get $get): bool => filled($get('seat_module')))
+                            ->suffix(fn (): string => UsageBilling::currency()),
+                        TextInput::make('min_seats')
+                            ->label(__('usage-billing::billing.plan.fields.min_seats'))
+                            ->numeric()
+                            ->minValue(1)
+                            ->visible(fn (Get $get): bool => filled($get('seat_module'))),
                         Text::make(fn (Get $get): string => static::priceBreakdown($get))
                             ->columnSpanFull()
                             ->icon(Heroicon::OutlinedCalculator)
@@ -175,6 +194,8 @@ class PlanResource extends Resource
                                     ->width('18%'),
                                 TableColumn::make(__('usage-billing::billing.plan.fields.hard_ceiling'))
                                     ->width('16%'),
+                                TableColumn::make(__('usage-billing::billing.plan.fields.per_seat'))
+                                    ->width('8%'),
                                 TableColumn::make(__('usage-billing::billing.plan.fields.summary')),
                             ])
                             ->schema([
@@ -204,6 +225,9 @@ class PlanResource extends Resource
                                     ->minValue(0)
                                     ->live(onBlur: true)
                                     ->placeholder(__('usage-billing::billing.plan.placeholders.no_ceiling')),
+                                Toggle::make('settings.per_seat')
+                                    ->hiddenLabel()
+                                    ->helperText(__('usage-billing::billing.plan.help.per_seat')),
                                 Text::make(fn (Get $get): string => static::moduleSummary($get))
                                     ->badge()
                                     ->color(fn (Get $get): string => $get('included_quantity') === null || $get('included_quantity') === ''
@@ -322,6 +346,19 @@ class PlanResource extends Resource
             'currency' => $get('currency') ?: UsageBilling::currency(),
             'months' => $months,
         ]);
+    }
+
+    /** @return array<string, string> */
+    private static function moduleKeyOptions(): array
+    {
+        return UsageBilling::query('module')
+            ->where('is_active', true)
+            ->orderBy('key')
+            ->get()
+            ->mapWithKeys(fn (Module $module): array => [
+                $module->key => static::moduleOptionLabel($module),
+            ])
+            ->all();
     }
 
     /** @return array<int, string> */

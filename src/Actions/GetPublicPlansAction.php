@@ -30,6 +30,9 @@ class GetPublicPlansAction
      *     tva_rate: float,
      *     term_months: int,
      *     trial_days: int,
+     *     seat_module: ?string,
+     *     seat_price_ht: ?float,
+     *     min_seats: ?int,
      *     is_recommended: bool,
      *     modules: array<string, array{key: string, label: string, unit: string, allowance: ?int, reset_period: string, unit_price_ht: ?float, ceiling: ?int, summary: string}>,
      *     features: array<int, array{label: string, allowance: ?int, unit: string}>
@@ -67,6 +70,9 @@ class GetPublicPlansAction
             'tva_rate' => (float) $plan->tva_rate,
             'term_months' => $months,
             'trial_days' => (int) $plan->trial_days,
+            'seat_module' => $plan->isSeatBased() ? $plan->seat_module : null,
+            'seat_price_ht' => $plan->isSeatBased() ? (float) $plan->seat_price_ht : null,
+            'min_seats' => $plan->isSeatBased() ? $plan->billableSeats(null) : null,
             'is_recommended' => $plan->slug === $recommended,
             'modules' => $modules,
             'features' => array_values(array_map(fn (array $module): array => [

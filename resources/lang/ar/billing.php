@@ -58,6 +58,7 @@ return [
         'invoice_issued' => 'تم إصدار الفاتورة',
         'payment_validated' => 'تم تأكيد الأداء',
         'invoice_cancelled' => 'تم إلغاء الفاتورة',
+        'seats_changed' => 'تغيّر عدد المقاعد',
     ],
 
     'reset_period' => [
@@ -82,6 +83,8 @@ return [
         'upgrade' => 'الانتقال من :from إلى :to — إلى غاية :until',
         'base_plan' => ':plan — :period',
         'overage' => ':module — :unit تتجاوز :allowance المدرجة',
+        'term_seats' => ':plan — :count مقعد من :from إلى :to',
+        'seats_added' => ':plan — :count مقعد إضافي حتى :until',
     ],
 
     'plan' => [
@@ -116,6 +119,10 @@ return [
             'is_public' => 'ظاهرة للعموم',
             'modules_count' => 'الوحدات',
             'subscribers' => 'المشتركون',
+            'seat_module' => 'الوحدة المفوترة بالمقعد',
+            'seat_price_ht' => 'ثمن المقعد لكل مدة دون الضريبة',
+            'min_seats' => 'الحد الأدنى للمقاعد',
+            'per_seat' => 'لكل مقعد',
         ],
         'price_breakdown' => 'أي :ttc :currency مع الضريبة عن :months شهرا · :monthly :currency دون الضريبة شهريا',
         'units' => [
@@ -138,6 +145,8 @@ return [
             'unit_price_ht' => 'الفراغ يعني توقف الاستعمال عند الحصة عوض فوترته.',
             'hard_ceiling' => 'الفراغ يعني عدم منع التجاوز أبدا.',
             'is_public' => 'ألغوا التحديد لصيغة متفاوض عليها خاصة ببعض المكاتب.',
+            'seat_module' => 'فارغ يعني ثمنًا ثابتًا. اختيار وحدة (مثل العملاء النشطين) يبيع الباقة بالمقعد، فتصبح حصتها عدد المقاعد المدفوعة.',
+            'per_seat' => 'عند التحديد تُمنح الحصة عن كل مقعد مدفوع.',
         ],
         'summary' => [
             'unlimited' => 'غير محدود',

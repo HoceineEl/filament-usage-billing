@@ -59,6 +59,48 @@ class PlanModule extends Model
         return $this->belongsTo(UsageBilling::modelClass('module'));
     }
 
+    /**
+     * Whether the allowance is granted per seat, so a seat plan scales it by
+     * the seats the subscription has paid for.
+     */
+    public function isPerSeat(): bool
+    {
+        return (bool) ($this->settings['per_seat'] ?? false);
+    }
+
+    /**
+     * This row as it applies to a subscription holding the given seats. The
+     * plan's seat module is capped at the seats themselves; per-seat modules
+     * multiply their allowance and ceiling. Never persisted.
+     */
+    public function forSeats(int $seats, bool $isSeatModule): static
+    {
+        if (! $isSeatModule && ! $this->isPerSeat()) {
+            return $this;
+        }
+
+        $scaled = clone $this;
+        $scaled->setRelations($this->getRelations());
+
+        if ($isSeatModule) {
+            $scaled->included_quantity = $seats;
+            $scaled->unit_price_ht = null;
+            $scaled->hard_ceiling = null;
+
+            return $scaled;
+        }
+
+        if ($this->included_quantity !== null) {
+            $scaled->included_quantity = $this->included_quantity * $seats;
+        }
+
+        if ($this->hard_ceiling !== null) {
+            $scaled->hard_ceiling = $this->hard_ceiling * $seats;
+        }
+
+        return $scaled;
+    }
+
     public function isUnlimited(): bool
     {
         return $this->included_quantity === null;
